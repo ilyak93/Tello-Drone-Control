@@ -1,0 +1,35 @@
+
+id: 0
+command: command
+response: ok
+start time: 2022-08-29 04:01:55.446000
+end_time: 2022-08-29 04:01:55.456000
+duration: 0.01
+
+id: 1
+command: mon
+response: ok
+start time: 2022-08-29 04:01:55.456000
+end_time: 2022-08-29 04:01:55.511000
+duration: 0.055
+
+id: 2
+command: takeoff
+response: ok
+start time: 2022-08-29 04:01:56.522000
+end_time: 2022-08-29 04:02:01.831000
+duration: 5.309
+
+id: 3
+command: jump 25 0 0 30 0 m1 m2
+response: error Run timeout
+start time: 2022-08-29 04:02:06.845000
+end_time: 2022-08-29 04:02:21.931000
+duration: 15.086
+
+id: 4
+command: land
+response: ok
+start time: 2022-08-29 04:02:36.931000
+end_time: 2022-08-29 04:02:39.526000
+duration: 2.595

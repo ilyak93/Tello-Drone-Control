@@ -1,0 +1,8 @@
+command
+mon
+delay 1
+takeoff
+delay 5
+jump 25 0 0 30 0 m1 m2
+delay 15
+land
