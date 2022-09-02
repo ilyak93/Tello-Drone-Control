@@ -44,12 +44,11 @@ next_pad = cur_pad
 # detect and react to pads until we see pad #1
 
 
-while next_pad == cur_pad:
-    tello.move_forward(20)
-    cur_pad = tello.get_mission_pad_id()
-    print("pad is " + str(cur_pad))
-    cur_dist = tello.get_mission_pad_distance_x()
-    print("and the distance to it is " + str(cur_dist))
+tello.move_forward(20)
+cur_pad = tello.get_mission_pad_id()
+print("pad is " + str(cur_pad))
+cur_dist = tello.get_mission_pad_distance_x()
+print("and the distance to it is " + str(cur_dist))
 
 # graceful termination
 
