@@ -97,12 +97,12 @@ def recorder_thread(tello, first_frame, prev_loc):
         #    last_rec_after_command_done = True
 
 # enable video
-tello.stream_on()
+tello.streamon()
 #get first frame and its xyz label
 first_frame = tello.get_frame_read()
 first_xyz = get_xyz(tello)
 #start recorder and writer threads
-recorder = threading.Thread(target=recorder_thread, args=(tello, first_frame,))
+recorder = threading.Thread(target=recorder_thread, args=(tello, first_frame, first_xyz))
 writer = threading.Thread(target=writer_thread, args=())
 response = False
 recorder.start()
