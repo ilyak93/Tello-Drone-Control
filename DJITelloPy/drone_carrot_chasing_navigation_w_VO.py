@@ -45,8 +45,6 @@ time.sleep(0.1)
 state = tello.get_current_state()
 print("battery is " + str(state["bat"]))
 
-# enable video
-tello.stream_on()
 # take off
 tello.takeoff()
 tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=20, mid=1)
@@ -98,9 +96,12 @@ def recorder_thread(tello, first_frame, prev_loc):
         #    data.append(cur_frame, xyz_executed,  xyz_VO)
         #    last_rec_after_command_done = True
 
-
+# enable video
+tello.stream_on()
+#get first frame and its xyz label
 first_frame = tello.get_frame_read()
 first_xyz = get_xyz(tello)
+#start recorder and writer threads
 recorder = threading.Thread(target=recorder_thread, args=(tello, first_frame,))
 writer = threading.Thread(target=writer_thread, args=())
 response = False
@@ -112,9 +113,9 @@ writer.start()
 from sympy import Eq, Symbol, solve
 
 distance_btw_pads = 100
-
+first = True
 while True:
-    cur_x, cur_y, cur_z = executed[-1]
+    cur_x, cur_y, cur_z = first_xyz if first else executed[-1]
     cur_y_pad = cur_y - distance_btw_pads * int(cur_pad[-1] in [2, 5]) + \
                 distance_btw_pads * int(cur_pad[-1] in [4, 7, 8])
     tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y_pad)
@@ -125,6 +126,7 @@ while True:
     x_move = math.sqrt(20 - y_move ^ 2)
     response = False
     response = tello.go_xyz_speed(x=x_move, y=y_move, z=100)
+    first = False
 
 tello.land()
 tello.end()
