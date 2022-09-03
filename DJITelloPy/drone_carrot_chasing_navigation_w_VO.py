@@ -98,20 +98,48 @@ response = True
 # calculate carrot chasing next move
 from sympy import Eq, Symbol, solve
 while True:
-    if cur_pad[-1] in [1,3,6] :
-        cur_x, cur_y, cur_z = executed[-1]
-        tan_alpha = abs(cur_x) / abs(-cur_x+delta_lookahead)
-        x = Symbol('x')
-        eqn = Eq(x**2 + (tan_alpha*x)**2, 20)
-        res = solve(eqn)
-        res = res[0] if cur_y < 0 else res[1]
-    elif cur_pad[-1] in [2,5,8] :
-        print()
-    else:
-        print()
-
-
-time.sleep(7)
+    cur_x, cur_y, cur_z = executed[-1]
+    cur_y_pad = cur_y - 100 * int(cur_pad[-1] in [2,5]) + 100 * int(cur_pad[-1] in [4,7,8])
+    tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y_pad)
+    y = Symbol('y')
+    eqn = Eq((tan_alpha * y) ** 2 + y ** 2, 20)
+    res = solve(eqn)
+    y_move = res[1] if (cur_y < 0 and cur_pad[-1] in [1,3,6]) or (cur_pad[-1] in [2,5]) else res[0]
+    x_move = math.sqrt(20 - y_move ^ 2)
+    response=False
+    response = tello.go_xyz_speed(x=x_move, y=y_move, z=cur_z)
+    
 tello.land()
 tello.end()
 
+
+
+
+'''
+# carrot chasing explicit cases - last to correct + correct sign of y_move
+    if cur_pad[-1] in [1,3,6] :
+        cur_x, cur_y, cur_z = executed[-1]
+        tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y)
+        y = Symbol('y')
+        eqn = Eq((tan_alpha*y)**2 + y**2, 20)
+        res = solve(eqn)
+        y_move = res[1] if cur_y < 0 else res[0]
+        x_move = math.sqrt(20 - y_move ^ 2)
+    elif cur_pad[-1] in [2,5,8] :
+        cur_x, cur_y, cur_z = executed[-1]
+        tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y - 100)
+        y = Symbol('y')
+        eqn = Eq((tan_alpha * y) ** 2 + y ** 2, 20)
+        res = solve(eqn)
+        y_move = res[1]
+        x_move = math.sqrt(20 - y_move ^ 2)
+    else:
+        cur_x, cur_y, cur_z = executed[-1]
+        tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y + 100)
+        x = Symbol('x')
+        eqn = Eq(x ** 2 + (tan_alpha * x) ** 2, 20)
+        res = solve(eqn)
+        x_move = res[1]
+        y_move = -math.sqrt(20 - y_move ^ 2)
+
+'''
