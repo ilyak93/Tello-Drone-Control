@@ -102,16 +102,21 @@ def recorder_thread(tello, first_frame, prev_loc):
 first_frame = tello.get_frame_read()
 first_xyz = get_xyz(tello)
 recorder = threading.Thread(target=recorder_thread, args=(tello, first_frame,))
+writer = threading.Thread(target=writer_thread, args=())
 response = False
 recorder.start()
+writer.start()
 
 # prepare for start
 # calculate carrot chasing next move
 from sympy import Eq, Symbol, solve
 
+distance_btw_pads = 100
+
 while True:
     cur_x, cur_y, cur_z = executed[-1]
-    cur_y_pad = cur_y - 100 * int(cur_pad[-1] in [2, 5]) + 100 * int(cur_pad[-1] in [4, 7, 8])
+    cur_y_pad = cur_y - distance_btw_pads * int(cur_pad[-1] in [2, 5]) + \
+                distance_btw_pads * int(cur_pad[-1] in [4, 7, 8])
     tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y_pad)
     y = Symbol('y')
     eqn = Eq((tan_alpha * y) ** 2 + y ** 2, 20)
