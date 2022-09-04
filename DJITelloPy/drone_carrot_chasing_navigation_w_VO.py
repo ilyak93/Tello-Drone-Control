@@ -60,6 +60,7 @@ def writer_thread():
                 im = Image.fromarray(img)
                 im.save('./data/' + str(write_idx) + '.png')
                 f.write("%f %f %f\n" % (x, y, z))
+                write_idx = write_idx + 1
         while len(data) <= write_idx:
             continue
 
@@ -103,6 +104,7 @@ def recorder_thread(tello, first_frame, prev_loc):
 
 # enable video
 tello.streamon()
+time.sleep(1)
 #get first frame and its xyz label
 first_frame = tello.get_frame_read().frame
 first_xyz = get_xyz(tello)
