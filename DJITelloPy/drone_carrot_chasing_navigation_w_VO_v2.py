@@ -7,11 +7,11 @@ import matplotlib.pyplot as plt
 
 
 # function for gettig the average location during 1 sec of measurements
-def get_xyz(tello):
+def get_xyz_pad(tello):
     # start = time.time()
     avg, count = ((0, 0, 0), 0)
     # avg, count, cur_xyz  = ((0, 0, 0), 0, [])
-    for i in range(1000):
+    for i in range(1):
         state = tello.get_current_state()
         if state["mid"] < 0:
             continue
@@ -21,17 +21,17 @@ def get_xyz(tello):
         # time.sleep(0.1)
         # detect and react to pads until we see pad #1
     if count == 0:
-        return (0,0,0)
+        return ((0, 0, 0), -1)
     avg = (avg[0] / count, avg[1] / count, avg[2] / count)
     # end = time.time()
     # print('elapsed time ' + str(end - start))
-    return avg
+    return (avg, state["mid"])
 
 
 planned = list()
 executed = list()
 VO_approx = list()
-cur_pad = list()
+
 
 # connect, enable missions pads detection and show battery
 
@@ -48,7 +48,7 @@ print("battery is " + str(state["bat"]))
 tello_on = True
 # take off
 tello.takeoff()
-tello.go_xyz_speed_mid(x=0, y=0, z=120, speed=20, mid=1)
+tello.go_xyz_speed_mid(x=0, y=0, z=60, speed=20, mid=1)
 data = list()
 write_idx = 0
 
@@ -57,15 +57,16 @@ response = True
 
 def writer_thread():
     global data, write_idx
-    with open('data/expt1/pose.txt', 'w+') as f:
+    with open('data/pose.txt', 'w+') as f:
         while True:
             while len(data) > write_idx:
                 if len(data) > write_idx:
                     img = data[write_idx][0]
                     x, y, z = data[write_idx][1]
+                    pad = data[write_idx][2]
                     im = Image.fromarray(img)
                     im.save('./data/' + str(write_idx) + '.png')
-                    f.write("%f %f %f\n" % (x, y, z))
+                    f.write("%f %f %f pad=%d\n" % (x, y, z, pad))
                     write_idx = write_idx + 1
                     time.sleep(0.1)
             while len(data) <= write_idx:
@@ -80,41 +81,43 @@ last = False
 
 def recorder_thread(tello, reader):
     global response, data, executed, last, tello_on
-    prev_frame = None
-    prev_executed = None
+    #prev_frame = None
+    #prev_executed = None
     next_rec = 0.25
     while True:
         if response is True:
             cur_frame = reader.frame
             # prev_frame = cur_frame
-            xyz_executed = get_xyz(tello)
+            xyz_executed, pad = get_xyz_pad(tello)
             # prev_executed = xyz_executed
-            executed.append(xyz_executed)
+            executed.append([xyz_executed, pad])
             # xyz_VO = VO(data[-1][0], cur_frame) # 0.25 runtime cost
             # data.append(cur_frame, xyz_executed,  xyz_VO)
-            data.append([cur_frame, xyz_executed])
+            data.append([cur_frame, xyz_executed, pad])
             last = True
+            if pad == -1:
+                break
 
         while response is True and tello_on is True:
             time.sleep(0.1)
             continue
 
         while response is False and tello_on:
-            state = tello.get_current_state()
-            start_time = state["time"]
-            while start_time + next_rec > state["time"]:
+            start_time = time.time()
+            while start_time + next_rec > time.time():
                 time.sleep(0.05)
-                state = tello.get_current_state()
                 continue
             cur_frame = reader.frame
             # prev_frame = cur_frame
-            xyz_executed = get_xyz(tello)
-            executed.append(xyz_executed)
+            xyz_executed, pad = get_xyz_pad(tello)
+            executed.append([xyz_executed, pad])
             # xyz_VO = VO(prev_frame, cur_frame)  # 0.25 runtime cost
             # data.append(cur_frame, xyz_executed, xyz_VO)
-            data.append([cur_frame, xyz_executed])
+            data.append([cur_frame, xyz_executed, pad])
             # prev_xyz_executed = xyz_executed
             # prev_frame = cur_frame
+            if pad == -1:
+                break
         if tello_on is False:
             break
 
@@ -142,23 +145,23 @@ while True:
     while last is False:
         time.sleep(0.1)
         continue
-    state = tello.get_current_state()
-    cur_pad.append(state['mid'])
-    if cur_pad[-1] == -1:
+    print("loc = " + str(executed[-1]))
+    (cur_x, cur_y, cur_z), cur_pad = executed[-1]
+
+    if cur_pad == -1:
         tello_on = False
         break
-    print("loc = " + str(executed[-1]))
-    cur_x, cur_y, cur_z = executed[-1]
+
     x_move, y_move = R, 0
     if cur_y != 0:
-        cur_y_pad = cur_y + distance_btw_pads * int(cur_pad[-1] in [2, 5]) - \
-                    distance_btw_pads * int(cur_pad[-1] in [4, 7, 8])
+        cur_y_pad = cur_y + distance_btw_pads * int(cur_pad in [2, 5]) - \
+                    distance_btw_pads * int(cur_pad in [4, 7, 8])
         tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y_pad)
         y = Symbol('y')
         eqn = Eq((tan_alpha * y) ** 2 + y ** 2, R ** 2)
         res = solve(eqn)
-        y_move = float(res[1]) if (cur_y < 0 and cur_pad[-1] in [1, 3, 6]) or \
-                                  (cur_pad[-1] in [4, 7, 8]) else float(res[0])
+        y_move = float(res[1]) if (cur_y < 0 and cur_pad in [1, 3, 6]) or \
+                                  (cur_pad in [4, 7, 8]) else float(res[0])
         x_move = math.sqrt(R ** 2 - y_move ** 2)
         print("xmove and ymove are: " + str(x_move) + ',' + str(y_move))
         if abs(x_move) < 20.0 and abs(y_move) < 20.0:
