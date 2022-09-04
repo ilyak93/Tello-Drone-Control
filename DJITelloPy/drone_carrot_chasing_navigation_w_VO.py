@@ -45,13 +45,13 @@ print("battery is " + str(state["bat"]))
 
 # take off
 tello.takeoff()
-tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=20, mid=1)
+tello.go_xyz_speed_mid(x=0, y=0, z=120, speed=20, mid=1)
 response = True
 data = list()
 write_idx = 0
 
 def writer_thread():
-    global data
+    global data, write_idx
     with open('./data/pose.txt', 'w+') as f:
         while len(data) > write_idx:
             if len(data) > write_idx :
@@ -65,7 +65,7 @@ def writer_thread():
             continue
 
 last = False
-def recorder_thread(tello, first_frame, prev_loc):
+def recorder_thread(tello, reader, first_frame, prev_loc):
     global response, data, executed, last
     prev_frame = first_frame
     prev_xyz_executed = prev_loc
@@ -78,7 +78,7 @@ def recorder_thread(tello, first_frame, prev_loc):
                 time.sleep(0.05)
                 state = tello.get_current_state()
                 continue
-            cur_frame = tello.get_frame_read().frame
+            cur_frame = reader.frame
             #prev_frame = cur_frame
             xyz_executed = get_xyz(tello)
             executed.append(xyz_executed)
@@ -89,7 +89,7 @@ def recorder_thread(tello, first_frame, prev_loc):
             prev_frame = cur_frame
         last_rec_after_command_done = False
         if response == True and last_rec_after_command_done == False:
-            cur_frame = tello.get_frame_read().frame
+            cur_frame = reader.frame
             xyz_executed = get_xyz(tello)
             executed.append(xyz_executed)
             #xyz_VO = VO(prev_frame, cur_frame) # 0.25 runtime cost
@@ -106,10 +106,11 @@ def recorder_thread(tello, first_frame, prev_loc):
 tello.streamon()
 time.sleep(1)
 #get first frame and its xyz label
-first_frame = tello.get_frame_read().frame
+reader = tello.get_frame_read()
+first_frame = reader.frame
 first_xyz = get_xyz(tello)
 #start recorder and writer threads
-recorder = threading.Thread(target=recorder_thread, args=(tello, first_frame, first_xyz))
+recorder = threading.Thread(target=recorder_thread, args=(tello, reader, first_frame, first_xyz))
 writer = threading.Thread(target=writer_thread, args=())
 recorder.start()
 writer.start()
