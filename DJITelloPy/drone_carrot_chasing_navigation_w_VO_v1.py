@@ -57,7 +57,7 @@ response = True
 
 def writer_thread():
     global data, write_idx
-    with open('data/expt1/pose.txt', 'w+') as f:
+    with open('data/pose.txt', 'w+') as f:
         while True:
             while len(data) > write_idx:
                 if len(data) > write_idx:
