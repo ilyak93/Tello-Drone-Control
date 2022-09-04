@@ -45,7 +45,7 @@ print("battery is " + str(state["bat"]))
 
 # take off
 tello.takeoff()
-#tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=20, mid=4)
+tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=20, mid=1)
 response = True
 data = list()
 write_idx = 0
@@ -93,7 +93,7 @@ def recorder_thread(tello, first_frame, prev_loc):
             executed.append(xyz_executed)
             #xyz_VO = VO(prev_frame, cur_frame) # 0.25 runtime cost
             #data.append(cur_frame, xyz_executed,  xyz_VO)
-            data.append(cur_frame, xyz_executed)
+            data.append([cur_frame, xyz_executed])
             last = True
         last_rec_after_command_done = True
         while response == True:
@@ -145,7 +145,7 @@ while True:
                 y_move = math.copysign(20.0, y_move)
     response = False
     response = tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
-    while(last == True):
+    while(last == False):
         continue
     first = False
 
