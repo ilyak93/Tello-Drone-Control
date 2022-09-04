@@ -45,7 +45,7 @@ print("battery is " + str(state["bat"]))
 
 # take off
 tello.takeoff()
-tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=20, mid=4)
+#tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=20, mid=4)
 response = True
 data = list()
 write_idx = 0
@@ -63,36 +63,43 @@ def writer_thread():
         while len(data) <= write_idx:
             continue
 
-
+last = False
 def recorder_thread(tello, first_frame, prev_loc):
-    global response, data
-    #last_rec_after_command_done = False
-    #prev_frame = first_frame
+    global response, data, executed, last
+    prev_frame = first_frame
     prev_xyz_executed = prev_loc
     next_rec = 0.25
     while (True):
         while response == False:
             state = tello.get_current_state()
-            while (state["time"] < state["time"] + next_rec):
+            start_time = state["time"]
+            while (start_time + next_rec < state["time"] ):
                 time.sleep(0.05)
                 state = tello.get_current_state()
                 continue
             cur_frame = tello.get_frame_read()
             #prev_frame = cur_frame
             xyz_executed = get_xyz(tello)
+            executed.append(xyz_executed)
             #xyz_VO = VO(prev_frame, cur_frame)  # 0.25 runtime cost
             #data.append(cur_frame, xyz_executed, xyz_VO)
             data.append([cur_frame, xyz_executed])
-            prev_xyz_executed
+            prev_xyz_executed = xyz_executed
+            prev_frame = cur_frame
+        last_rec_after_command_done = False
+        if response == True and last_rec_after_command_done == False:
+            cur_frame = tello.frame2
+            xyz_executed = get_xyz(tello)
+            executed.append(xyz_executed)
+            #xyz_VO = VO(prev_frame, cur_frame) # 0.25 runtime cost
+            #data.append(cur_frame, xyz_executed,  xyz_VO)
+            data.append(cur_frame, xyz_executed)
+            last = True
+        last_rec_after_command_done = True
         while response == True:
             continue
 
-        # if response == True and last_rec_after_command_done == False:
-        #    cur_frame = tello.frame2
-        #    xyz_executed = get_xyz(tello)
-        #    xyz_VO = VO(prev_frame, cur_frame) # 0.25 runtime cost
-        #    data.append(cur_frame, xyz_executed,  xyz_VO)
-        #    last_rec_after_command_done = True
+
 
 # enable video
 tello.streamon()
@@ -100,11 +107,10 @@ tello.streamon()
 first_frame = tello.get_frame_read()
 first_xyz = get_xyz(tello)
 #start recorder and writer threads
-#recorder = threading.Thread(target=recorder_thread, args=(tello, first_frame, first_xyz))
-#writer = threading.Thread(target=writer_thread, args=())
-response = False
-#recorder.start()
-#writer.start()
+recorder = threading.Thread(target=recorder_thread, args=(tello, first_frame, first_xyz))
+writer = threading.Thread(target=writer_thread, args=())
+recorder.start()
+writer.start()
 
 # prepare for start
 # calculate carrot chasing next move
@@ -114,6 +120,7 @@ distance_btw_pads = 100
 R = 25
 delta_lookahead = 50
 first = True
+
 while True:
     state = tello.get_current_state()
     cur_pad.append(state['mid'])
@@ -138,10 +145,17 @@ while True:
                 y_move = math.copysign(20.0, y_move)
     response = False
     response = tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
+    while(last == True):
+        continue
     first = False
 
 tello.land()
 tello.end()
+
+# signals on response and signals on executed :
+# carrot chasing should sleep_wait until gets a signal from recorder
+# that it recorded the last True executed command
+# recorder should sleep_wait while command yet sent to tello drone
 
 '''
 # carrot chasing explicit cases - last to correct + correct sign of y_move
