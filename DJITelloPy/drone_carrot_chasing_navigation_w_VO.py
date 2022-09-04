@@ -31,8 +31,6 @@ executed = list()
 VO_approx = list()
 cur_pad = list()
 
-delta_lookahead = 40
-
 # connect, enable missions pads detection and show battery
 
 tello = Tello()
@@ -47,7 +45,7 @@ print("battery is " + str(state["bat"]))
 
 # take off
 tello.takeoff()
-tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=20, mid=1)
+tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=20, mid=4)
 response = True
 data = list()
 write_idx = 0
@@ -102,30 +100,44 @@ tello.streamon()
 first_frame = tello.get_frame_read()
 first_xyz = get_xyz(tello)
 #start recorder and writer threads
-recorder = threading.Thread(target=recorder_thread, args=(tello, first_frame, first_xyz))
-writer = threading.Thread(target=writer_thread, args=())
+#recorder = threading.Thread(target=recorder_thread, args=(tello, first_frame, first_xyz))
+#writer = threading.Thread(target=writer_thread, args=())
 response = False
-recorder.start()
-writer.start()
+#recorder.start()
+#writer.start()
 
 # prepare for start
 # calculate carrot chasing next move
 from sympy import Eq, Symbol, solve
 
 distance_btw_pads = 100
+R = 25
+delta_lookahead = 50
 first = True
 while True:
+    state = tello.get_current_state()
+    cur_pad.append(state['mid'])
+    print("loc = " + str(first_xyz))
     cur_x, cur_y, cur_z = first_xyz if first else executed[-1]
-    cur_y_pad = cur_y - distance_btw_pads * int(cur_pad[-1] in [2, 5]) + \
-                distance_btw_pads * int(cur_pad[-1] in [4, 7, 8])
-    tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y_pad)
-    y = Symbol('y')
-    eqn = Eq((tan_alpha * y) ** 2 + y ** 2, 20)
-    res = solve(eqn)
-    y_move = res[1] if (cur_y < 0 and cur_pad[-1] in [1, 3, 6]) or (cur_pad[-1] in [2, 5]) else res[0]
-    x_move = math.sqrt(20 - y_move ^ 2)
+    x_move, y_move = R, 0
+    if cur_y != 0:
+        cur_y_pad = cur_y + distance_btw_pads * int(cur_pad[-1] in [2, 5]) - \
+                    distance_btw_pads * int(cur_pad[-1] in [4, 7, 8])
+        tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y_pad)
+        y = Symbol('y')
+        eqn = Eq((tan_alpha * y) ** 2 + y ** 2, R**2)
+        res = solve(eqn)
+        y_move = float(res[1]) if (cur_y < 0 and cur_pad[-1] in [1, 3, 6]) or \
+                                  (cur_pad[-1] in [4, 7, 8]) else float(res[0])
+        x_move = math.sqrt(R**2 - y_move ** 2)
+        print("xmove and ymove are: " + str(x_move)+','+str(y_move))
+        if abs(x_move) < 20.0 and abs(y_move) < 20.0:
+            if abs(x_move) > abs(y_move):
+                x_move = math.copysign(20.0, x_move)
+            else:
+                y_move = math.copysign(20.0, y_move)
     response = False
-    response = tello.go_xyz_speed(x=x_move, y=y_move, z=100)
+    response = tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
     first = False
 
 tello.land()
@@ -140,7 +152,7 @@ tello.end()
         eqn = Eq((tan_alpha*y)**2 + y**2, 20)
         res = solve(eqn)
         y_move = res[1] if cur_y < 0 else res[0]
-        x_move = math.sqrt(20 - y_move ^ 2)
+        x_move = math.sqrt(20 - y_move ** 2)
     elif cur_pad[-1] in [2,5,8] :
         cur_x, cur_y, cur_z = executed[-1]
         tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y - 100)
@@ -148,7 +160,7 @@ tello.end()
         eqn = Eq((tan_alpha * y) ** 2 + y ** 2, 20)
         res = solve(eqn)
         y_move = res[1]
-        x_move = math.sqrt(20 - y_move ^ 2)
+        x_move = math.sqrt(20 - y_move ** 2)
     else:
         cur_x, cur_y, cur_z = executed[-1]
         tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y + 100)
@@ -156,6 +168,6 @@ tello.end()
         eqn = Eq(x ** 2 + (tan_alpha * x) ** 2, 20)
         res = solve(eqn)
         x_move = res[1]
-        y_move = -math.sqrt(20 - y_move ^ 2)
+        y_move = -math.sqrt(20 - y_move ** 2)
 
 '''
