@@ -43,6 +43,7 @@ time.sleep(0.1)
 state = tello.get_current_state()
 print("battery is " + str(state["bat"]))
 
+tello_on = True
 # take off
 tello.takeoff()
 tello.go_xyz_speed_mid(x=0, y=0, z=120, speed=20, mid=1)
@@ -55,23 +56,28 @@ response = True
 def writer_thread():
     global data, write_idx
     with open('./data/pose.txt', 'w+') as f:
-        while len(data) > write_idx:
-            if len(data) > write_idx:
-                img = data[write_idx][0]
-                x, y, z = data[write_idx][1]
-                im = Image.fromarray(img)
-                im.save('./data/' + str(write_idx) + '.png')
-                f.write("%f %f %f\n" % (x, y, z))
-                write_idx = write_idx + 1
-                time.sleep(1)
-        while len(data) <= write_idx:
-            continue
+        while True:
+            while len(data) > write_idx:
+                if len(data) > write_idx:
+                    img = data[write_idx][0]
+                    x, y, z = data[write_idx][1]
+                    im = Image.fromarray(img)
+                    im.save('./data/' + str(write_idx) + '.png')
+                    f.write("%f %f %f\n" % (x, y, z))
+                    write_idx = write_idx + 1
+                    time.sleep(0.1)
+            while len(data) <= write_idx:
+                time.sleep(0.1)
+                if tello_on is False:
+                    break
+            if tello_on is False:
+                break
 
 #last is False as last recording which is the first in this case have not done yet
 last = False
 
 def recorder_thread(tello, reader):
-    global response, data, executed, last
+    global response, data, executed, last, tello_on
     prev_frame = None
     prev_executed = None
     next_rec = 0.25
@@ -87,11 +93,11 @@ def recorder_thread(tello, reader):
             data.append([cur_frame, xyz_executed])
             last = True
 
-        while response is True:
+        while response is True and tello_on is True:
             time.sleep(0.1)
             continue
 
-        while response is False:
+        while response is False and tello_on:
             state = tello.get_current_state()
             start_time = state["time"]
             while start_time + next_rec > state["time"]:
@@ -107,6 +113,8 @@ def recorder_thread(tello, reader):
             data.append([cur_frame, xyz_executed])
             # prev_xyz_executed = xyz_executed
             # prev_frame = cur_frame
+        if tello_on is False:
+            break
 
 
 # enable video
@@ -116,9 +124,9 @@ time.sleep(1)
 reader = tello.get_frame_read()
 # start recorder and writer threads
 recorder = threading.Thread(target=recorder_thread, args=(tello, reader))
-# writer = threading.Thread(target=writer_thread, args=())
+writer = threading.Thread(target=writer_thread, args=())
 recorder.start()
-# writer.start()
+writer.start()
 
 # prepare for start
 # calculate carrot chasing next move
@@ -134,6 +142,9 @@ while True:
         continue
     state = tello.get_current_state()
     cur_pad.append(state['mid'])
+    if cur_pad[-1] == -1:
+        tello_on = False
+        break
     print("loc = " + str(executed[-1]))
     cur_x, cur_y, cur_z = executed[-1]
     x_move, y_move = R, 0
@@ -160,6 +171,9 @@ while True:
 
 tello.land()
 tello.end()
+
+writer.join()
+recorder.join()
 
 # signals on response and signals on executed :
 # carrot chasing should sleep_wait until gets a signal from recorder
