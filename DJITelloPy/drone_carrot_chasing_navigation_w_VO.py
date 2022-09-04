@@ -77,7 +77,7 @@ def recorder_thread(tello, first_frame, prev_loc):
                 time.sleep(0.05)
                 state = tello.get_current_state()
                 continue
-            cur_frame = tello.get_frame_read()
+            cur_frame = tello.get_frame_read().frame
             #prev_frame = cur_frame
             xyz_executed = get_xyz(tello)
             executed.append(xyz_executed)
@@ -88,7 +88,7 @@ def recorder_thread(tello, first_frame, prev_loc):
             prev_frame = cur_frame
         last_rec_after_command_done = False
         if response == True and last_rec_after_command_done == False:
-            cur_frame = tello.frame2
+            cur_frame = tello.get_frame_read().frame
             xyz_executed = get_xyz(tello)
             executed.append(xyz_executed)
             #xyz_VO = VO(prev_frame, cur_frame) # 0.25 runtime cost
@@ -104,7 +104,7 @@ def recorder_thread(tello, first_frame, prev_loc):
 # enable video
 tello.streamon()
 #get first frame and its xyz label
-first_frame = tello.get_frame_read()
+first_frame = tello.get_frame_read().frame
 first_xyz = get_xyz(tello)
 #start recorder and writer threads
 recorder = threading.Thread(target=recorder_thread, args=(tello, first_frame, first_xyz))
