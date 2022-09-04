@@ -20,6 +20,8 @@ def get_xyz(tello):
         # cur_xyz.append((state["x"], state["y"],  state["z"]))
         # time.sleep(0.1)
         # detect and react to pads until we see pad #1
+    if count == 0:
+        return (0,0,0)
     avg = (avg[0] / count, avg[1] / count, avg[2] / count)
     # end = time.time()
     # print('elapsed time ' + str(end - start))
@@ -55,7 +57,7 @@ response = True
 
 def writer_thread():
     global data, write_idx
-    with open('./data/pose.txt', 'w+') as f:
+    with open('data/expt1/pose.txt', 'w+') as f:
         while True:
             while len(data) > write_idx:
                 if len(data) > write_idx:
