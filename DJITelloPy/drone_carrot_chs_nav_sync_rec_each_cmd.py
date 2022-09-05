@@ -43,6 +43,9 @@ state = tello.get_current_state()
 print("battery is " + str(state["bat"]))
 
 tello_on = True
+# enable video
+tello.streamon()
+time.sleep(1)
 # take off
 tello.takeoff()
 tello.go_xyz_speed_mid(x=0, y=0, z=60, speed=20, mid=1)
@@ -73,21 +76,13 @@ ready = threading.Event()
 def recorder_thread(tello, reader):
     global response, data, ready, tello_on
     while True:
-        state = tello.get_current_state()
-        if state['mid'] == -1:
-            tello_on = False
         ready.set()
         response.wait()
-        if tello_on is False:
+        if data[-1][2] == -1:
             break
+        state = tello.get_current_state()
         data.append([reader.frame, (state['x'], state['y'], state['z']), state['mid']])
         response.clear()
-
-
-
-# enable video
-tello.streamon()
-time.sleep(1)
 
 # start recorder and writer threads
 reader = tello.get_frame_read()
@@ -127,11 +122,11 @@ while True:
     #end = time.time()
     #print("time is" + str(end - start))
     ready.wait()
-    if tello_on is False:
+    if data[-1][2] == -1:
         response.set()
         break
     tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
-    time.sleep(1)
+    time.sleep(3)
     ready.clear()
     response.set()
 
