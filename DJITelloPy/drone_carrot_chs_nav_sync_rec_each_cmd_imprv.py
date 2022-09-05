@@ -46,6 +46,7 @@ tello_on = True
 # enable video
 tello.streamon()
 time.sleep(1)
+
 # take off
 tello.takeoff()
 tello.go_xyz_speed_mid(x=0, y=0, z=60, speed=20, mid=1)
@@ -73,8 +74,9 @@ last = False
 
 response = threading.Event()
 ready = threading.Event()
+
 def recorder_thread(tello, reader):
-    global response, data, ready, tello_on
+    global response, data, ready
     while True:
         ready.set()
         response.wait()
@@ -98,6 +100,10 @@ delta_lookahead = 50
 state = tello.get_current_state()
 data.append([reader.frame, (state['x'], state['y'], state['z']), state['mid']])
 
+def perform_command_thread(command, **args):
+    command(**args)
+
+records_during_movement = 2
 while True:
     # this calculatins takes 0.0 seconds
     #start = time.time()
@@ -125,8 +131,15 @@ while True:
     if data[-1][2] == -1:
         response.set()
         break
-    tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
-    time.sleep(3)
+    cur_command = threading.Thread(target=tello.go_xyz_speed,
+                                   args=(round(x_move), round(y_move), 0, 20)) #args=(x,y,z,speed)
+    cur_command.start()
+    time.sleep(0.25)
+    for i in range(records_during_movement):
+        response.set()
+        time.sleep(0.25)
+    cur_command.join()
+    time.sleep(2)
     ready.clear()
     response.set()
 
