@@ -42,7 +42,7 @@ time.sleep(0.1)
 state = tello.get_current_state()
 print("battery is " + str(state["bat"]))
 
-tello_on = True
+
 # enable video
 tello.streamon()
 time.sleep(1)
