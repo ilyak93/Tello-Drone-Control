@@ -5,6 +5,7 @@ from djitellopy import Tello
 import time
 import matplotlib.pyplot as plt
 
+from TartanVO.Datasets.utils import Compose, CropCenter, DownscaleFlow, ToTensor
 from TartanVO.TartanVO import TartanVO
 
 
@@ -39,6 +40,11 @@ tello_intrinsics = [
 
 testvo = TartanVO("tartanvo_1914.pkl")
 focalx, focaly, centerx, centery = 785.75708966, 781.95811828, 494.5589324, 319.88369613
+
+image_width, image_height = 640, 448
+transform = Compose([CropCenter((image_height, image_width)), DownscaleFlow(), ToTensor()])
+
+# TODO: adjust the testing for real time run: look at TartanVO original transofrm and preprocess operations and inline them before VO activate
 
 VO_approx = list()
 
