@@ -99,7 +99,8 @@ last = False
 response = threading.Event()
 ready = threading.Event()
 
-
+#TODO: calculate translation correctly if pads are different between previous and current measurement (based on real distance between pads)
+#TODO: make data a readable dict
 def recorder_thread(tello, reader):
     global response, data, ready, focalx, focaly, centerx, centery, transform
     while True:
@@ -108,16 +109,17 @@ def recorder_thread(tello, reader):
         if data[-1][2] == -1:
             break
         state = tello.get_current_state()
-        data.append([reader.frame, (state['x'], state['y'], state['z']), state['mid']])
-        res = {'img1': data[-2][0], 'img2': data[-1][0]}
+        sample = {'img1': data[-2][0], 'img2': data[-1][0]}
         h, w, _ = data[-1][0].shape
         intrinsicLayer = make_intrinsics_layer(w, h, focalx, focaly, centerx, centery)
-        res['intrinsic'] = intrinsicLayer
-        res = transform(res)
-        x_trans, y_trans, z_trans = data[-1][1][0] - data[-2][1][0], \
-                                    data[-1][1][1] - data[-2][1][1], \
-                                    data[-1][1][2] - data[-2][1][2]
-        res['motion'] = [x_trans, y_trans, z_trans, 0, 0, 0]
+        sample['intrinsic'] = intrinsicLayer
+        sample = transform(sample)
+        x_trans, y_trans, z_trans = state['x']- data[-2][1][0], \
+                                    state['y'] - data[-2][1][1], \
+                                    state['z'] - data[-2][1][2]
+        sample['motion'] = [x_trans, y_trans, z_trans, 0, 0, 0]
+        VO_motions, VO_flow = testvo.test_batch(sample)
+        data.append([reader.frame, (state['x'], state['y'], state['z']), state['mid'], (VO_motions, VO_flow)])
         response.clear()
 
 
