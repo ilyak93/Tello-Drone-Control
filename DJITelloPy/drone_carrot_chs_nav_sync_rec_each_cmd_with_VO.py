@@ -5,7 +5,7 @@ from djitellopy import Tello
 import time
 import matplotlib.pyplot as plt
 
-from TartanVO.Datasets.utils import Compose, CropCenter, DownscaleFlow, ToTensor
+from TartanVO.Datasets.utils import Compose, CropCenter, DownscaleFlow, ToTensor, make_intrinsics_layer
 from TartanVO.TartanVO import TartanVO
 
 
@@ -44,7 +44,14 @@ focalx, focaly, centerx, centery = 785.75708966, 781.95811828, 494.5589324, 319.
 image_width, image_height = 640, 448
 transform = Compose([CropCenter((image_height, image_width)), DownscaleFlow(), ToTensor()])
 
-# TODO: adjust the testing for real time run: look at TartanVO original transofrm and preprocess operations and inline them before VO activate
+# how to run the VO on VO:
+# res = {'img1': img1, 'img2': img2 }
+# h, w, _ = img1.shape
+# intrinsicLayer = make_intrinsics_layer(w, h, self.focalx, self.focaly, self.centerx, self.centery)
+# res['intrinsic'] = intrinsicLayer
+# res = transform(res)
+# res['motion'] = groundTruth
+
 
 VO_approx = list()
 
@@ -94,7 +101,7 @@ ready = threading.Event()
 
 
 def recorder_thread(tello, reader):
-    global response, data, ready
+    global response, data, ready, focalx, focaly, centerx, centery, transform
     while True:
         ready.set()
         response.wait()
@@ -102,6 +109,15 @@ def recorder_thread(tello, reader):
             break
         state = tello.get_current_state()
         data.append([reader.frame, (state['x'], state['y'], state['z']), state['mid']])
+        res = {'img1': data[-2][0], 'img2': data[-1][0]}
+        h, w, _ = data[-1][0].shape
+        intrinsicLayer = make_intrinsics_layer(w, h, focalx, focaly, centerx, centery)
+        res['intrinsic'] = intrinsicLayer
+        res = transform(res)
+        x_trans, y_trans, z_trans = data[-1][1][0] - data[-2][1][0], \
+                                    data[-1][1][1] - data[-2][1][1], \
+                                    data[-1][1][2] - data[-2][1][2]
+        res['motion'] = [x_trans, y_trans, z_trans, 0, 0, 0]
         response.clear()
 
 
