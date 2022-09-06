@@ -5,6 +5,8 @@ from djitellopy import Tello
 import time
 import matplotlib.pyplot as plt
 
+from TartanVO.TartanVO import TartanVO
+
 
 # function for gettig the average location during 1 sec of measurements
 def get_xyz_pad(tello):
@@ -28,13 +30,17 @@ def get_xyz_pad(tello):
     return (avg, state["mid"])
 
 
-VO_approx = list()
 
 tello_intrinsics = [
     [785.75708966, 0., 494.5589324]
     [0., 781.95811828, 319.88369613]
     [0., 0., 1.]
 ]
+
+testvo = TartanVO("tartanvo_1914.pkl")
+focalx, focaly, centerx, centery = 785.75708966, 781.95811828, 494.5589324, 319.88369613
+
+VO_approx = list()
 
 # connect, enable missions pads detection and show battery
 
@@ -151,3 +157,4 @@ writer.join()
 # carrot chasing should sleep_wait until gets a signal from recorder
 # that it recorded the last True executed command
 # recorder should sleep_wait while command yet sent to tello drone
+
