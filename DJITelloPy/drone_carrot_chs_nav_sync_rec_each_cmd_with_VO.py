@@ -1,5 +1,7 @@
 import math
 import threading
+
+import torch
 from PIL import Image
 from djitellopy import Tello
 import time
@@ -31,18 +33,40 @@ def get_xyz_pad(tello):
     return (avg, state["mid"])
 
 
-
 tello_intrinsics = [
-    [785.75708966, 0., 494.5589324]
-    [0., 781.95811828, 319.88369613]
+    [785.75708966, 0., 494.5589324],
+    [0., 781.95811828, 319.88369613],
     [0., 0., 1.]
 ]
 
 testvo = TartanVO("tartanvo_1914.pkl")
 focalx, focaly, centerx, centery = 785.75708966, 781.95811828, 494.5589324, 319.88369613
 
+
+class Unsqueeze(object):
+    """
+    Scale the flow and mask to a fixed size
+
+    """
+
+    def __init__(self, axis=0):
+        '''
+        size: output frame size, this should be NO LARGER than the input frame size!
+        '''
+        self.axis = axis
+
+    def __call__(self, sample):
+        for key in sample.keys():
+            if key != 'motion':
+                sample[key] = sample[key].unsqueeze(self.axis).cuda()
+            else:
+                sample[key] = sample[key].unsqueeze(self.axis)
+        return sample
+
+
 image_width, image_height = 640, 448
 transform = Compose([CropCenter((image_height, image_width)), DownscaleFlow(), ToTensor()])
+unsqueeze_transform = Unsqueeze()
 
 # how to run the VO on VO:
 # res = {'img1': img1, 'img2': img2 }
@@ -82,14 +106,19 @@ response = True
 
 def writer_thread():
     global data, write_idx
-    with open('data/pose.txt', 'w+') as f:
+    with open('data/pose_GT.txt', 'w+') as gt_file, open('data/pose_pred.txt', 'w+') as pred_file:
         while len(data) > write_idx:
             img = data[write_idx][0]
             x, y, z = data[write_idx][1]
             pad = data[write_idx][2]
             im = Image.fromarray(img)
             im.save('./data/' + str(write_idx) + '.png')
-            f.write("%f %f %f pad=%d\n" % (x, y, z, pad))
+            gt_file.write("%f %f %f pad=%d\n" % (x, y, z, pad))
+            if write_idx >= 1:
+                predicted = data[write_idx][3]
+                pred_file.write("%f %f %f %f %f %f\n"
+                                % (predicted[0, 0], predicted[0, 1], predicted[0,2],
+                                   predicted[0, 3], predicted[0, 4], predicted[0, 5]))
             write_idx = write_idx + 1
 
 
@@ -99,8 +128,9 @@ last = False
 response = threading.Event()
 ready = threading.Event()
 
-#TODO: calculate translation correctly if pads are different between previous and current measurement (based on real distance between pads)
-#TODO: make data a readable dict
+
+# TODO: calculate translation correctly if pads are different between previous and current measurement (based on real distance between pads)
+# TODO: make data a readable dict
 def recorder_thread(tello, reader):
     global response, data, ready, focalx, focaly, centerx, centery, transform
     while True:
@@ -109,17 +139,22 @@ def recorder_thread(tello, reader):
         if data[-1][2] == -1:
             break
         state = tello.get_current_state()
-        sample = {'img1': data[-2][0], 'img2': data[-1][0]}
-        h, w, _ = data[-1][0].shape
+        cur_frame = reader.frame
+        sample = {'img1': data[-1][0], 'img2': cur_frame}
+        h, w, _ = cur_frame.shape
         intrinsicLayer = make_intrinsics_layer(w, h, focalx, focaly, centerx, centery)
         sample['intrinsic'] = intrinsicLayer
         sample = transform(sample)
-        x_trans, y_trans, z_trans = state['x']- data[-2][1][0], \
-                                    state['y'] - data[-2][1][1], \
-                                    state['z'] - data[-2][1][2]
-        sample['motion'] = [x_trans, y_trans, z_trans, 0, 0, 0]
+        '''
+        if state['mid'] == data[-1][2]:
+            x_trans, y_trans, z_trans = state['x']- data[-1][1][0], \
+                                        state['y'] - data[-1][1][1], \
+                                        state['z'] - data[-1][1][2]
+        '''
+        # sample['motion'] = torch.Tensor([x_trans, y_trans, z_trans, 0, 0, 0])
+        sample = unsqueeze_transform(sample)
         VO_motions, VO_flow = testvo.test_batch(sample)
-        data.append([reader.frame, (state['x'], state['y'], state['z']), state['mid'], (VO_motions, VO_flow)])
+        data.append([reader.frame, (state['x'], state['y'], state['z']), state['mid'], VO_motions])
         response.clear()
 
 
