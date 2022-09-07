@@ -36,7 +36,7 @@ import time
 
 np.set_printoptions(precision=4, suppress=True, threshold=10000)
 
-from Network.VONet import VONet
+from TartanVO.Network.VONet import VONet
 
 class TartanVO(object):
     def __init__(self, model_name):
@@ -45,7 +45,7 @@ class TartanVO(object):
 
         # load the whole model
         if model_name.endswith('.pkl'):
-            modelname = 'models/' + model_name
+            modelname = 'TartanVO/models/' + model_name
             self.load_model(self.vonet, modelname)
 
         self.vonet.cuda()
