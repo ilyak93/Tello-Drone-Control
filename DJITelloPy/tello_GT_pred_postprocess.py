@@ -15,21 +15,34 @@ with open('data/pose_GT.txt', 'r') as gt_file, open('data/pose_pred.txt', 'r') a
     GT_lines = [line.rstrip() for line in gt_file]
     pred_lines = [line.rstrip() for line in pred_file]
     prev_GT = GT_lines[0].split()
-    prev_x_GT, prev_y_GT, prev_z_GT = float(prev_GT[0]), float(prev_GT[1]), float(prev_GT[2])
+    prev_x_GT, prev_y_GT, prev_z_GT, prev_pad = float(prev_GT[0]), float(prev_GT[1]), float(prev_GT[2]), int(prev_GT[6])
     for i in range(1, len(GT_lines)):
         # calculate translation: y positive is from the left of the pad, more intuitive to align to VO where it is to
         # the right
         cur_GT = GT_lines[i].split()
-        cur_x_GT, cur_y_GT, cur_z_GT = [float(cur_GT[0]), float(cur_GT[1]), float(cur_GT[2])]
-        x_trans, y_trans, z_trans = [cur_x_GT - prev_x_GT,
-                                     -(cur_y_GT - prev_y_GT),
-                                     cur_z_GT - prev_z_GT]
+        cur_x_GT, cur_y_GT, cur_z_GT, cur_pad = float(cur_GT[0]), float(cur_GT[1]), float(cur_GT[2]), int(cur_GT[6])
+        if cur_pad == prev_pad:
+                x_trans, y_trans, z_trans = [cur_x_GT - prev_x_GT,
+                                             -(cur_y_GT - prev_y_GT),
+                                             cur_z_GT - prev_z_GT]
+        # TODO: add other options 
         corrected_gt_file.write("%f %f %f %s %s %s\n"
                                 % (x_trans, y_trans, z_trans,
                                    cur_GT[3], cur_GT[4], cur_GT[5]))
+        prev_x_GT, prev_y_GT, prev_z_GT = cur_x_GT, cur_y_GT, cur_z_GT
+        
+        #rescale and save
         pred = GT_lines[i].split()
         x_pred, y_pred, z_pred = [float(pred[0]), float(pred[1]), float(pred[2])]
         scaled_x, scaled_y, scaled_z = rescale(np.array([x_trans, y_trans, z_trans]), np.array(pred))
         corrected_gt_file.write("%f %f %f %s %s %s\n"
                                 % (scaled_x, scaled_y, scaled_z,
                                    cur_GT[3], cur_GT[4], cur_GT[5]))
+
+
+
+# TODO: write plotting and saving func
+
+# create cruves
+
+# for each point colored in different color, create pic
