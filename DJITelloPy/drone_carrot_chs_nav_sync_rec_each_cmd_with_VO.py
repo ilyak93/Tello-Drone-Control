@@ -99,25 +99,28 @@ tello.takeoff()
 tello.go_xyz_speed_mid(x=0, y=0, z=80, speed=20, mid=1)
 data = list()
 write_idx = 0
-
+planned = list()
 # reponse is True as the last command of taking off with alignment using go mid finished
 response = True
 
 
 def writer_thread():
-    global data, write_idx
-    with open('data/pose_GT.txt', 'w+') as gt_file, open('data/pose_pred.txt', 'w+') as pred_file:
+    global data, write_idx, planned
+    with open('data/pose_GT.txt', 'w+') as gt_file,\
+            open('data/pose_pred.txt', 'w+') as pred_file, \
+                open('data/pose_planned.txt', 'w+') as planned_file:
         while len(data) > write_idx:
             img = data[write_idx][0]
             x, y, z, pitch, roll, yaw, pad = data[write_idx][1]
             im = Image.fromarray(img)
             im.save('./data/' + str(write_idx) + '.png')
-            gt_file.write("%f %f %f %f %f %f pad=%d\n" % (x, y, z, pitch, roll, yaw, pad))
+            gt_file.write("%f %f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw, pad))
             if write_idx >= 1:
                 predicted = data[write_idx][2]
                 pred_file.write("%f %f %f %f %f %f\n"
                                 % (predicted[0, 0], predicted[0, 1], predicted[0, 2],
                                    predicted[0, 3], predicted[0, 4], predicted[0, 5]))
+            planned_file.write("%f %f %f\n" % (planned[0], planned[1], planned[2]))
             write_idx = write_idx + 1
 
 
@@ -147,7 +150,7 @@ def recorder_thread(tello, reader):
         VO_motions, VO_flow = testvo.test_batch(sample)
         data.append([reader.frame, (state['x'], state['y'], state['z'],
                                     state["pitch"], state["roll"],
-                                    state["yaw"], state['mid']), VO_motions])
+                                    state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
         response.clear()
 
 
@@ -156,7 +159,7 @@ reader = tello.get_frame_read()
 recorder = threading.Thread(target=recorder_thread, args=([tello, reader]))
 recorder.start()
 
-distance_btw_pads = 100
+distance_btw_pads = 50
 R = 25
 delta_lookahead = 50
 # calculate carrot chasing moves and send to execution
@@ -174,13 +177,13 @@ while True:
     (cur_x, cur_y, cur_z, _, _, _, cur_pad) = data[-1][1]
     x_move, y_move = R, 0
     if cur_y != 0:
-        cur_y__dist_from_pad = cur_y + distance_btw_pads * int(cur_pad in [2, 5]) - \
-                               distance_btw_pads * int(cur_pad in [4, 7, 8])
-        tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y__dist_from_pad)
+        cur_y_dist_from_pad = cur_y + distance_btw_pads * int(cur_pad in [2, 5]) - \
+                              distance_btw_pads * int(cur_pad in [3, 6])
+        tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y_dist_from_pad)
         # (tan_alpha+1)*y**2 = R**2 --> y = math.sqrt(R**2 / (tan_alpha+1))
         y_move_abs = math.sqrt(R ** 2 / (tan_alpha + 1))
-        y_move = float(y_move_abs) if (cur_y < 0 and cur_pad in [1, 3, 6]) or \
-                                      (cur_pad in [4, 7, 8]) else float(-y_move_abs)
+        y_move = float(y_move_abs) if (cur_y < 0 and cur_pad in [1, 4, 7]) or \
+                                      (cur_pad in [3, 6]) else float(-y_move_abs)
         x_move = math.sqrt(R ** 2 - y_move ** 2)
         # print("xmove and ymove are: " + str(x_move) + ',' + str(y_move))
         if abs(x_move) < 20.0 and abs(y_move) < 20.0:
@@ -190,6 +193,7 @@ while True:
                 y_move = math.copysign(20.0, y_move)
     # end = time.time()
     # print("time is" + str(end - start))
+    planned.append([round(x_move), round(y_move), 0])
     ready.wait()
     if data[-1][1][6] == -1:
         response.set()
