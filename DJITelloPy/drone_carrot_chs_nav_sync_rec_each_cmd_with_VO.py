@@ -109,15 +109,14 @@ def writer_thread():
     with open('data/pose_GT.txt', 'w+') as gt_file, open('data/pose_pred.txt', 'w+') as pred_file:
         while len(data) > write_idx:
             img = data[write_idx][0]
-            x, y, z = data[write_idx][1]
-            pad = data[write_idx][2]
+            x, y, z, pitch, roll, yaw, pad = data[write_idx][1]
             im = Image.fromarray(img)
             im.save('./data/' + str(write_idx) + '.png')
-            gt_file.write("%f %f %f pad=%d\n" % (x, y, z, pad))
+            gt_file.write("%f %f %f %f %f %f pad=%d\n" % (x, y, z, pitch, roll, yaw, pad))
             if write_idx >= 1:
-                predicted = data[write_idx][3]
+                predicted = data[write_idx][2]
                 pred_file.write("%f %f %f %f %f %f\n"
-                                % (predicted[0, 0], predicted[0, 1], predicted[0,2],
+                                % (predicted[0, 0], predicted[0, 1], predicted[0, 2],
                                    predicted[0, 3], predicted[0, 4], predicted[0, 5]))
             write_idx = write_idx + 1
 
@@ -129,14 +128,13 @@ response = threading.Event()
 ready = threading.Event()
 
 
-
 # TODO: make data a readable dict
 def recorder_thread(tello, reader):
     global response, data, ready, focalx, focaly, centerx, centery, transform
     while True:
         ready.set()
         response.wait()
-        if data[-1][2] == -1:
+        if data[-1][1][6] == -1:
             break
         state = tello.get_current_state()
         cur_frame = reader.frame
@@ -145,15 +143,11 @@ def recorder_thread(tello, reader):
         intrinsicLayer = make_intrinsics_layer(w, h, focalx, focaly, centerx, centery)
         sample['intrinsic'] = intrinsicLayer
         sample = transform(sample)
-
-
-        # x_trans, y_trans, z_trans = state['x']- data[-1][1][0], \
-        #                             state['y'] - data[-1][1][1], \
-        #                             state['z'] - data[-1][1][2]
-        # sample['motion'] = torch.Tensor([x_trans, y_trans, z_trans, state["pitch"], state["roll"], state["yaw"]])
         sample = unsqueeze_transform(sample)
         VO_motions, VO_flow = testvo.test_batch(sample)
-        data.append([reader.frame, (state['x'], state['y'], state['z']), state['mid'], VO_motions])
+        data.append([reader.frame, (state['x'], state['y'], state['z'],
+                                    state["pitch"], state["roll"],
+                                    state["yaw"], state['mid']), VO_motions])
         response.clear()
 
 
@@ -169,13 +163,15 @@ delta_lookahead = 50
 # get first frame and its xyz label
 
 state = tello.get_current_state()
-data.append([reader.frame, (state['x'], state['y'], state['z']), state['mid']])
+data.append([reader.frame, (state['x'], state['y'], state['z'],
+                            state["pitch"], state["roll"],
+                            state["yaw"], state['mid'])])
 
 while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
     # print("loc = " + str(executed[-1]))
-    (cur_x, cur_y, cur_z), cur_pad = data[-1][1], data[-1][2]
+    (cur_x, cur_y, cur_z, _, _, _, cur_pad) = data[-1][1]
     x_move, y_move = R, 0
     if cur_y != 0:
         cur_y__dist_from_pad = cur_y + distance_btw_pads * int(cur_pad in [2, 5]) - \
@@ -195,7 +191,7 @@ while True:
     # end = time.time()
     # print("time is" + str(end - start))
     ready.wait()
-    if data[-1][2] == -1:
+    if data[-1][1][6] == -1:
         response.set()
         break
     tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
