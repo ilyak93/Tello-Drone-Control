@@ -129,7 +129,7 @@ response = threading.Event()
 ready = threading.Event()
 
 
-# TODO: calculate translation correctly if pads are different between previous and current measurement (based on real distance between pads)
+
 # TODO: make data a readable dict
 def recorder_thread(tello, reader):
     global response, data, ready, focalx, focaly, centerx, centery, transform
@@ -145,13 +145,12 @@ def recorder_thread(tello, reader):
         intrinsicLayer = make_intrinsics_layer(w, h, focalx, focaly, centerx, centery)
         sample['intrinsic'] = intrinsicLayer
         sample = transform(sample)
-        '''
-        if state['mid'] == data[-1][2]:
-            x_trans, y_trans, z_trans = state['x']- data[-1][1][0], \
-                                        state['y'] - data[-1][1][1], \
-                                        state['z'] - data[-1][1][2]
-        '''
-        # sample['motion'] = torch.Tensor([x_trans, y_trans, z_trans, 0, 0, 0])
+
+
+        # x_trans, y_trans, z_trans = state['x']- data[-1][1][0], \
+        #                             state['y'] - data[-1][1][1], \
+        #                             state['z'] - data[-1][1][2]
+        # sample['motion'] = torch.Tensor([x_trans, y_trans, z_trans, state["pitch"], state["roll"], state["yaw"]])
         sample = unsqueeze_transform(sample)
         VO_motions, VO_flow = testvo.test_batch(sample)
         data.append([reader.frame, (state['x'], state['y'], state['z']), state['mid'], VO_motions])
