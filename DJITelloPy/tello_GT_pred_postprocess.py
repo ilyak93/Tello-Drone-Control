@@ -14,7 +14,7 @@ horizontal_dist_between_adjc_pads = 100
 vertical_dist_between_diag_adjc_pads = 50
 
 cur_point = (0, 0)
-cur_pred= (0, 0)
+cur_pred = (0, 0)
 
 points_GT = list()
 points_GT.append(cur_point)
@@ -28,6 +28,8 @@ with open('data/pose_GT.txt', 'r') as gt_file, open('data/pose_pred.txt', 'r') a
     pred_lines = [line.rstrip() for line in pred_file]
     prev_GT = GT_lines[0].split()
     prev_x_GT, prev_y_GT, prev_z_GT, prev_pad = float(prev_GT[0]), float(prev_GT[1]), float(prev_GT[2]), int(prev_GT[6])
+    cur_point = (prev_x_GT, prev_y_GT)
+    cur_pred = (prev_x_GT, prev_y_GT)
     for i in range(1, len(GT_lines)-1):
         # calculate translation: y positive is from the left of the pad, more intuitive to align to VO where it is to
         # the right
