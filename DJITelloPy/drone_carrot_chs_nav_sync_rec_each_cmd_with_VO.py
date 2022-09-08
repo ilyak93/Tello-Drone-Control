@@ -120,7 +120,7 @@ def writer_thread():
                 pred_file.write("%f %f %f %f %f %f\n"
                                 % (predicted[0, 0], predicted[0, 1], predicted[0, 2],
                                    predicted[0, 3], predicted[0, 4], predicted[0, 5]))
-            planned_file.write("%f %f %f\n" % (planned[0], planned[1], planned[2]))
+            planned_file.write("%f %f %f\n" % (planned[write_idx][0], planned[write_idx][1], planned[write_idx][2]))
             write_idx = write_idx + 1
 
 
@@ -193,7 +193,7 @@ while True:
                 y_move = math.copysign(20.0, y_move)
     # end = time.time()
     # print("time is" + str(end - start))
-    planned.append([round(x_move), round(y_move), 0])
+    planned.append((round(x_move), round(y_move), 0))
     ready.wait()
     if data[-1][1][6] == -1:
         response.set()
