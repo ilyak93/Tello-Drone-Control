@@ -19,22 +19,28 @@ cur_point = (0, 0)
 cur_pred = (0, 0)
 
 points_GT = list()
-points_GT.append(cur_point)
 points_pred = list()
-points_pred.append(cur_pred)
+points_planned = list()
 
 with open('data/pose_GT.txt', 'r') as gt_file, open('data/pose_pred.txt', 'r') as pred_file, \
         open('data/corrected_pose_GT.txt', 'w+') as corrected_gt_file, \
-        open('data/corrected_pose_pred.txt', 'w+') as corrected_pred_file:
+        open('data/corrected_pose_pred.txt', 'w+') as corrected_pred_file, \
+        open('data/pose_planned.txt', 'r') as planned_file, \
+        open('data/corrected_pose_planned.txt', 'w+') as corrected_planned_file:
     GT_lines = [line.rstrip() for line in gt_file]
     pred_lines = [line.rstrip() for line in pred_file]
     prev_GT = GT_lines[0].split()
     prev_x_GT, prev_y_GT, prev_z_GT, prev_pad = float(prev_GT[0]), float(prev_GT[1]), float(prev_GT[2]), int(prev_GT[6])
     cur_point = (prev_x_GT, prev_y_GT)
     cur_pred = (prev_x_GT, prev_y_GT)
+    points_GT.append(cur_point)
+    planned_lines = [line.rstrip() for line in planned_file]
+    cur_planned = planned_lines[0].split()
+
     for i in range(1, len(GT_lines) - 1):
         # calculate translation: y positive is from the left of the pad, more intuitive to align to VO where it is to
         # the right
+
         cur_GT = GT_lines[i].split()
         cur_x_GT, cur_y_GT, cur_z_GT, cur_pad = float(cur_GT[0]), float(cur_GT[1]), float(cur_GT[2]), int(cur_GT[6])
         assert abs(cur_pad - prev_pad) <= 3
@@ -49,7 +55,7 @@ with open('data/pose_GT.txt', 'r') as gt_file, open('data/pose_pred.txt', 'r') a
             x_twice = math.copysign(x_twice, cur_pad - prev_pad)
             dir_right = (cur_pad - prev_pad == -1 or cur_pad - prev_pad == 2)
             horz_dist_sign = -1 if dir_right else 1
-            
+
             cur_x_GT_relative_to_prev = cur_x_GT + \
                                         x_once * vertical_dist_btw_diag_adjc_pads + \
                                         x_twice * vertical_dist_btw_diag_adjc_pads
@@ -57,11 +63,18 @@ with open('data/pose_GT.txt', 'r') as gt_file, open('data/pose_pred.txt', 'r') a
             x_trans, y_trans, z_trans = [cur_x_GT_relative_to_prev - prev_x_GT,
                                          -(cur_y_GT_relative_to_prev - prev_y_GT),
                                          cur_z_GT - prev_z_GT]
+
+        cur_planned = planned_lines[i].split()
+        points_planned.append((cur_point[0] + float(cur_planned[0]),
+                               cur_point[1] + float(cur_planned[1])))
         cur_point = [sum(x) for x in zip(cur_point, (x_trans, y_trans))]
         points_GT.append(cur_point)
 
+
         prev_x_GT, prev_y_GT, prev_z_GT = cur_x_GT, cur_y_GT, cur_z_GT
         prev_pad = cur_pad
+
+
 
         corrected_gt_file.write("%f %f %f %s %s %s\n"
                                 % (x_trans, y_trans, z_trans,
@@ -80,37 +93,42 @@ with open('data/pose_GT.txt', 'r') as gt_file, open('data/pose_pred.txt', 'r') a
 
 # TODO: write plotting and saving func
 
-# create cruves
+#for i in range(len(points_GT))
+# create curves
 
 import matplotlib.pyplot as plt
 
 # Dataset
-x = np.array([pt[0] for pt in points_GT])
-y = np.array([pt[1] for pt in points_GT])
+
+x_GT = np.array([pt[0] for pt in points_GT])
+y_GT = np.array([pt[1] for pt in points_GT])
+
+x_pred = np.array([pt[0] for pt in points_pred])
+y_pred = np.array([pt[1] for pt in points_pred])
+
+x_planned = np.array([pt[0] for pt in points_planned])
+y_planned = np.array([pt[1] for pt in points_planned])
+
 
 # Plotting the Graph
-plt.plot(y, x, marker='o', color='b')
-plt.title("Curve plotted using the given GT points")
+plt.plot(y_GT, x_GT, marker='o', color='b')
+#fig, ax = plt.subplots()
+#for i, txt in enumerate(range(len(y_GT))):
+#    ax.annotate(txt, (y_GT[i], x_GT[i]))
+plt.plot(y_pred, x_pred, linestyle="--", marker='x', color='r')
+plt.scatter(y_planned, x_planned, marker='v', color='g')
+plt.title("Groudtruth locations, Visual Odometry estimations and planned navigation")
 plt.xlim([-300, 300])
-plt.ylim([-50, 400])
-plt.xlabel("Y")
-plt.ylabel("X")
+plt.ylim([-50, 300])
+plt.xlabel("Y(cm)")
+plt.ylabel("X(cm)")
+
+
+
 plt.show()
 
 import matplotlib.pyplot as plt
 
-# Dataset
-x = np.array([pt[0] for pt in points_pred])
-y = np.array([pt[1] for pt in points_pred])
-
-# Plotting the Graph
-plt.plot(y, x, marker='o', color='b')
-plt.title("Curve plotted using the given predicted points")
-plt.xlim([-300, 300])
-plt.ylim([-50, 400])
-plt.xlabel("Y")
-plt.ylabel("X")
-plt.show()
 
 # for each point colored in different color, create pic
 
