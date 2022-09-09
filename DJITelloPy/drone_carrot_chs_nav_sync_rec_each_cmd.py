@@ -104,15 +104,15 @@ while True:
     (cur_x, cur_y, cur_z), cur_pad = data[-1][1], data[-1][2]
     x_move, y_move = R, 0
     if cur_y != 0:
-        cur_y__dist_from_pad = cur_y + distance_btw_pads * int(cur_pad in [2, 5]) - \
-                    distance_btw_pads * int(cur_pad in [4, 7, 8])
-        tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y__dist_from_pad)
+        cur_y_dist_from_pad = cur_y + distance_btw_pads * int(cur_pad in [2, 5]) - \
+                              distance_btw_pads * int(cur_pad in [3, 6])
+        tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y_dist_from_pad)
         # (tan_alpha+1)*y**2 = R**2 --> y = math.sqrt(R**2 / (tan_alpha+1))
-        y_move_abs = math.sqrt(R**2 / (tan_alpha+1))
-        y_move = float(y_move_abs) if (cur_y < 0 and cur_pad in [1, 3, 6]) or \
-                                  (cur_pad in [4, 7, 8]) else float(-y_move_abs)
+        y_move_abs = math.sqrt(R ** 2 / (tan_alpha + 1))
+        y_move = float(y_move_abs) if (cur_y < 0 and cur_pad in [1, 4, 7]) or \
+                                      (cur_pad in [3, 6]) else float(-y_move_abs)
         x_move = math.sqrt(R ** 2 - y_move ** 2)
-        #print("xmove and ymove are: " + str(x_move) + ',' + str(y_move))
+        # print("xmove and ymove are: " + str(x_move) + ',' + str(y_move))
         if abs(x_move) < 20.0 and abs(y_move) < 20.0:
             if abs(x_move) > abs(y_move):
                 x_move = math.copysign(20.0, x_move)
@@ -144,4 +144,5 @@ writer.join()
 # carrot chasing should sleep_wait until gets a signal from recorder
 # that it recorded the last True executed command
 # recorder should sleep_wait while command yet sent to tello drone
+
 
