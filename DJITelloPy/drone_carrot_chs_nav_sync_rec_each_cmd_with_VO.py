@@ -96,9 +96,10 @@ tello.streamon()
 time.sleep(1)
 # take off
 tello.takeoff()
-tello.go_xyz_speed_mid(x=0, y=0, z=80, speed=20, mid=1)
+tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=20, mid=1)
 time.sleep(5)
 data = list()
+lock = threading.Lock()
 write_idx = 0
 planned = list()
 # reponse is True as the last command of taking off with alignment using go mid finished
@@ -152,7 +153,9 @@ def recorder_thread(tello, reader):
         data.append([reader.frame, (state['x'], state['y'], state['z'],
                                     state["pitch"], state["roll"],
                                     state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
+        ready.set()
         response.clear()
+
 
 
 # start recorder and writer threads
@@ -160,7 +163,7 @@ reader = tello.get_frame_read()
 recorder = threading.Thread(target=recorder_thread, args=([tello, reader]))
 recorder.start()
 
-distance_btw_pads = 35
+distance_btw_pads = 50
 R = 25
 delta_lookahead = 50
 # calculate carrot chasing moves and send to execution
@@ -180,7 +183,7 @@ while True:
     if cur_y != 0:
         cur_y_dist_from_pad = cur_y + distance_btw_pads * int(cur_pad in [2, 5]) - \
                               distance_btw_pads * int(cur_pad in [3, 6])
-        tan_alpha = abs(cur_x + delta_lookahead) / abs(cur_y_dist_from_pad)
+        tan_alpha = delta_lookahead / abs(cur_y_dist_from_pad)
         # (tan_alpha+1)*y**2 = R**2 --> y = math.sqrt(R**2 / (tan_alpha+1))
         y_move_abs = math.sqrt(R ** 2 / (tan_alpha + 1))
         y_move = float(y_move_abs) if (cur_y < 0 and cur_pad in [1, 4, 7]) or \
@@ -201,10 +204,11 @@ while True:
     if data[-1][1][6] == -1:
         response.set()
         break
-    tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
+    tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=100)
     time.sleep(3)
     ready.clear()
     response.set()
+    ready.wait()
 
 tello.land()
 tello.end()
