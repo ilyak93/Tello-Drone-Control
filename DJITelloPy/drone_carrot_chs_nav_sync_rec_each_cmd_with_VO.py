@@ -193,10 +193,10 @@ while True:
             else:
                 y_move = math.copysign(20.0, y_move)
 
-        planned.append((round(x_move), round(y_move), 0))
     # end = time.time()
     # print("time is" + str(end - start))
-        
+    planned.append((round(x_move), round(y_move), 0))
+
     ready.wait()
     if data[-1][1][6] == -1:
         response.set()
