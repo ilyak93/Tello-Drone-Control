@@ -97,6 +97,7 @@ time.sleep(1)
 # take off
 tello.takeoff()
 tello.go_xyz_speed_mid(x=0, y=0, z=80, speed=20, mid=1)
+time.sleep(5)
 data = list()
 write_idx = 0
 planned = list()
@@ -159,7 +160,7 @@ reader = tello.get_frame_read()
 recorder = threading.Thread(target=recorder_thread, args=([tello, reader]))
 recorder.start()
 
-distance_btw_pads = 50
+distance_btw_pads = 35
 R = 25
 delta_lookahead = 50
 # calculate carrot chasing moves and send to execution
@@ -191,9 +192,11 @@ while True:
                 x_move = math.copysign(20.0, x_move)
             else:
                 y_move = math.copysign(20.0, y_move)
+
+        planned.append((round(x_move), round(y_move), 0))
     # end = time.time()
     # print("time is" + str(end - start))
-    planned.append((round(x_move), round(y_move), 0))
+        
     ready.wait()
     if data[-1][1][6] == -1:
         response.set()
