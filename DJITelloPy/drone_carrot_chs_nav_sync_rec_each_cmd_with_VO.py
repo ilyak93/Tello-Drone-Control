@@ -76,9 +76,6 @@ unsqueeze_transform = Unsqueeze()
 # res = transform(res)
 # res['motion'] = groundTruth
 
-
-VO_approx = list()
-
 # connect, enable missions pads detection and show battery
 
 tello = Tello()
