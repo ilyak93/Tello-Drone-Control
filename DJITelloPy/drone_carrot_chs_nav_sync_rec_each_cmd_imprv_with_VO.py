@@ -1,9 +1,14 @@
 import math
 import threading
+
+import torch
 from PIL import Image
 from djitellopy import Tello
 import time
 import matplotlib.pyplot as plt
+
+from TartanVO.Datasets.utils import Compose, CropCenter, DownscaleFlow, ToTensor, make_intrinsics_layer
+from TartanVO.TartanVO import TartanVO
 
 
 # function for gettig the average location during 1 sec of measurements
@@ -27,8 +32,49 @@ def get_xyz_pad(tello):
     # print('elapsed time ' + str(end - start))
     return (avg, state["mid"])
 
-VO_approx = list()
 
+tello_intrinsics = [
+    [785.75708966, 0., 494.5589324],
+    [0., 781.95811828, 319.88369613],
+    [0., 0., 1.]
+]
+
+testvo = TartanVO("tartanvo_1914.pkl")
+focalx, focaly, centerx, centery = 785.75708966, 781.95811828, 494.5589324, 319.88369613
+
+
+class Unsqueeze(object):
+    """
+    Scale the flow and mask to a fixed size
+
+    """
+
+    def __init__(self, axis=0):
+        '''
+        size: output frame size, this should be NO LARGER than the input frame size!
+        '''
+        self.axis = axis
+
+    def __call__(self, sample):
+        for key in sample.keys():
+            if key != 'motion':
+                sample[key] = sample[key].unsqueeze(self.axis).cuda()
+            else:
+                sample[key] = sample[key].unsqueeze(self.axis)
+        return sample
+
+
+image_width, image_height = 640, 448
+transform = Compose([CropCenter((image_height, image_width)), DownscaleFlow(), ToTensor()])
+unsqueeze_transform = Unsqueeze()
+
+# how to run the VO on VO:
+# res = {'img1': img1, 'img2': img2 }
+# h, w, _ = img1.shape
+# intrinsicLayer = make_intrinsics_layer(w, h, self.focalx, self.focaly, self.centerx, self.centery)
+# res['intrinsic'] = intrinsicLayer
+# res = transform(res)
+# res['motion'] = groundTruth
 
 # connect, enable missions pads detection and show battery
 
@@ -42,48 +88,70 @@ time.sleep(0.1)
 state = tello.get_current_state()
 print("battery is " + str(state["bat"]))
 
-
 # enable video
 tello.streamon()
 time.sleep(1)
-
 # take off
 tello.takeoff()
-tello.go_xyz_speed_mid(x=0, y=0, z=60, speed=20, mid=1)
+tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=20, mid=1)
+time.sleep(5)
 data = list()
+lock = threading.Lock()
 write_idx = 0
-
-#reponse is True as the last command of taking off with alignment using go mid finished
+planned = list()
+# reponse is True as the last command of taking off with alignment using go mid finished
 response = True
 
+
 def writer_thread():
-    global data, write_idx
-    with open('data/pose.txt', 'w+') as f:
+    global data, write_idx, planned
+    with open('data/pose_GT.txt', 'w+') as gt_file,\
+            open('data/pose_pred.txt', 'w+') as pred_file, \
+                open('data/pose_planned.txt', 'w+') as planned_file:
         while len(data) > write_idx:
-                img = data[write_idx][0]
-                x, y, z = data[write_idx][1]
-                pad = data[write_idx][2]
-                im = Image.fromarray(img)
-                im.save('./data/' + str(write_idx) + '.png')
-                f.write("%f %f %f pad=%d\n" % (x, y, z, pad))
-                write_idx = write_idx + 1
+            img = data[write_idx][0]
+            x, y, z, pitch, roll, yaw, pad = data[write_idx][1]
+            im = Image.fromarray(img)
+            im.save('./data/' + str(write_idx) + '.png')
+            gt_file.write("%f %f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw, pad))
+            if write_idx >= 1:
+                predicted = data[write_idx][2]
+                pred_file.write("%f %f %f %f %f %f\n"
+                                % (predicted[0, 0], predicted[0, 1], predicted[0, 2],
+                                   predicted[0, 3], predicted[0, 4], predicted[0, 5]))
+            planned_file.write("%f %f %f\n" % (planned[write_idx][0], planned[write_idx][1], planned[write_idx][2]))
+            write_idx = write_idx + 1
 
 
-#last is False as last recording which is the first in this case have not done yet
+# last is False as last recording which is the first in this case have not done yet
 last = False
 
 response = threading.Event()
 ready = threading.Event()
 
+
+
+# TODO: make data a readable dict
 def recorder_thread(tello, reader):
-    global response, data, ready
+    global response, data, ready, focalx, focaly, centerx, centery, transform
     while True:
         ready.set()
         response.wait()
-        if data[-1][2] == -1:
+        if data[-1][1][6] == -1:
             break
         state = tello.get_current_state()
-        data.append([reader.frame, (state['x'], state['y'], state['z']), state['mid']])
+        cur_frame = reader.frame
+        sample = {'img1': data[-1][0], 'img2': cur_frame}
+        h, w, _ = cur_frame.shape
+        intrinsicLayer = make_intrinsics_layer(w, h, focalx, focaly, centerx, centery)
+        sample['intrinsic'] = intrinsicLayer
+        sample = transform(sample)
+        sample = unsqueeze_transform(sample)
+        VO_motions, VO_flow = testvo.test_batch(sample)
+        data.append([reader.frame, (state['x'], state['y'], state['z'],
+                                    state["pitch"], state["roll"],
+                                    state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
+        ready.set()
         response.clear()
 
 # start recorder and writer threads
@@ -91,24 +159,23 @@ reader = tello.get_frame_read()
 recorder = threading.Thread(target=recorder_thread, args=([tello, reader]))
 recorder.start()
 
-distance_btw_pads = 100
+distance_btw_pads = 50
 R = 25
 delta_lookahead = 50
 # calculate carrot chasing moves and send to execution
 # get first frame and its xyz label
 
 state = tello.get_current_state()
-data.append([reader.frame, (state['x'], state['y'], state['z']), state['mid']])
+data.append([reader.frame, (state['x'], state['y'], state['z'],
+                            state["pitch"], state["roll"],
+                            state["yaw"], state['mid'])])
 
-def perform_command_thread(command, **args):
-    command(**args)
-
-records_during_movement = 2
+records_during_movement = 28
 while True:
     # this calculatins takes 0.0 seconds
-    #start = time.time()
-    #print("loc = " + str(executed[-1]))
-    (cur_x, cur_y, cur_z), cur_pad = data[-1][1], data[-1][2]
+    # start = time.time()
+    # print("loc = " + str(executed[-1]))
+    (cur_x, cur_y, cur_z, _, _, _, cur_pad) = data[-1][1]
     x_move, y_move = R, 0
     if cur_y != 0:
         cur_y_dist_from_pad = cur_y + distance_btw_pads * int(cur_pad in [2, 5]) - \
@@ -139,9 +206,10 @@ while True:
         response.set()
         time.sleep(0.25)
     cur_command.join()
-    time.sleep(2)
+    time.sleep(3)
     ready.clear()
     response.set()
+    ready.wait()
 
 
 
