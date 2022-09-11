@@ -103,6 +103,7 @@ planned = list()
 response = True
 
 
+#TODO: update the writer to deal with records between motions
 def writer_thread():
     global data, write_idx, planned
     with open('data/pose_GT.txt', 'w+') as gt_file,\
@@ -130,7 +131,7 @@ response = threading.Event()
 ready = threading.Event()
 
 
-
+#TODO: update the recorder to mark records between motions and the start-finish records for motion
 # TODO: make data a readable dict
 def recorder_thread(tello, reader):
     global response, data, ready, focalx, focaly, centerx, centery, transform
