@@ -93,7 +93,7 @@ tello.streamon()
 time.sleep(1)
 # take off
 tello.takeoff()
-tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=20, mid=1)
+tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=100, mid=1)
 time.sleep(5)
 data = list()
 lock = threading.Lock()
@@ -103,24 +103,31 @@ planned = list()
 response = True
 
 
-#TODO: update the writer to deal with records between motions
+# TODO: update the writer to deal with records between motions
 def writer_thread():
     global data, write_idx, planned
-    with open('data/pose_GT.txt', 'w+') as gt_file,\
+    with open('data/pose_GT.txt', 'w+') as gt_file, \
             open('data/pose_pred.txt', 'w+') as pred_file, \
-                open('data/pose_planned.txt', 'w+') as planned_file:
+            open('data/pose_planned.txt', 'w+') as planned_file:
         while len(data) > write_idx:
             img = data[write_idx][0]
             x, y, z, pitch, roll, yaw, pad = data[write_idx][1]
             im = Image.fromarray(img)
             im.save('./data/' + str(write_idx) + '.png')
-            gt_file.write("%f %f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw, pad))
+            gt_file.write("%f %f %f %f %f %f %d\n" % (x, y, z, pitch, roll,
+                                                      yaw, pad))
             if write_idx >= 1:
-                predicted = data[write_idx][2]
-                pred_file.write("%f %f %f %f %f %f\n"
-                                % (predicted[0, 0], predicted[0, 1], predicted[0, 2],
-                                   predicted[0, 3], predicted[0, 4], predicted[0, 5]))
-            planned_file.write("%f %f %f\n" % (planned[write_idx][0], planned[write_idx][1], planned[write_idx][2]))
+                predicted = data[write_idx][2][0]
+                writing_type = data[write_idx][2][1]
+                pred_file.write("%f %f %f %f %f %f %s\n"
+                                % (predicted[0, 0], predicted[0, 1],
+                                   predicted[0, 2], predicted[0, 3],
+                                   predicted[0, 4], predicted[0, 5],
+                                   writing_type))
+            if write_idx < len(planned):
+                planned_file.write("%f %f %f\n" % (planned[write_idx][0],
+                                                   planned[write_idx][1],
+                                                   planned[write_idx][2]))
             write_idx = write_idx + 1
 
 
@@ -131,10 +138,11 @@ response = threading.Event()
 ready = threading.Event()
 
 
-#TODO: update the recorder to mark records between motions and the start-finish records for motion
+# TODO: update the recorder to mark records between motions and the start-finish records for motion
 # TODO: make data a readable dict
 def recorder_thread(tello, reader):
-    global response, data, ready, focalx, focaly, centerx, centery, transform
+    global response, data, ready, focalx, focaly, centerx, centery, transform, \
+        major
     while True:
         ready.set()
         response.wait()
@@ -149,11 +157,14 @@ def recorder_thread(tello, reader):
         sample = transform(sample)
         sample = unsqueeze_transform(sample)
         VO_motions, VO_flow = testvo.test_batch(sample)
+        writing_type = "major" if major else "minor"
         data.append([reader.frame, (state['x'], state['y'], state['z'],
                                     state["pitch"], state["roll"],
-                                    state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
+                                    state["yaw"], state['mid']), (VO_motions, writing_type),
+                     [x_move, y_move, 0]])
         ready.set()
         response.clear()
+
 
 # start recorder and writer threads
 reader = tello.get_frame_read()
@@ -171,7 +182,8 @@ data.append([reader.frame, (state['x'], state['y'], state['z'],
                             state["pitch"], state["roll"],
                             state["yaw"], state['mid'])])
 
-records_during_movement = 28
+records_during_movement = 2
+major = False
 while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
@@ -193,27 +205,28 @@ while True:
                 x_move = math.copysign(20.0, x_move)
             else:
                 y_move = math.copysign(20.0, y_move)
-    #end = time.time()
-    #print("time is" + str(end - start))
+    # end = time.time()
+    # print("time is" + str(end - start))
     ready.wait()
-    if data[-1][2] == -1:
+    if data[-1][1][6] == -1:
         response.set()
         break
     cur_command = threading.Thread(target=tello.go_xyz_speed,
-                                   args=(round(x_move), round(y_move), 0, 20)) #args=(x,y,z,speed)
+                                   args=(round(x_move), round(y_move), 0, 100))  # args=(x,y,z,speed)
     cur_command.start()
     time.sleep(0.25)
     for i in range(records_during_movement):
         response.set()
-        time.sleep(0.25)
+        time.sleep(0.015)
+        if data[-1][1][6] == -1:
+            break
     cur_command.join()
     time.sleep(3)
+    major = True
     ready.clear()
     response.set()
     ready.wait()
-
-
-
+    major = False
 
 tello.land()
 tello.end()
@@ -227,5 +240,4 @@ writer.join()
 # carrot chasing should sleep_wait until gets a signal from recorder
 # that it recorded the last True executed command
 # recorder should sleep_wait while command yet sent to tello drone
-
 
