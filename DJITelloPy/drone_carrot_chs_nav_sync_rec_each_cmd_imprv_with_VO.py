@@ -96,7 +96,7 @@ tello.takeoff()
 tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=100, mid=1)
 time.sleep(5)
 data = list()
-lock = threading.Lock()
+
 write_idx = 0
 planned = list()
 # reponse is True as the last command of taking off with alignment using go mid finished
@@ -207,7 +207,7 @@ while True:
                 y_move = math.copysign(20.0, y_move)
 
     planned.append((round(x_move), round(y_move), 0))
-    
+
     # end = time.time()
     # print("time is" + str(end - start))
     ready.wait()
