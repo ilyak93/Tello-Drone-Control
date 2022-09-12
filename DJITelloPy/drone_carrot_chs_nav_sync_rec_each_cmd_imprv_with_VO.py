@@ -205,6 +205,9 @@ while True:
                 x_move = math.copysign(20.0, x_move)
             else:
                 y_move = math.copysign(20.0, y_move)
+
+    planned.append((round(x_move), round(y_move), 0))
+    
     # end = time.time()
     # print("time is" + str(end - start))
     ready.wait()
