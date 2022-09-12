@@ -96,7 +96,7 @@ tello.takeoff()
 tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=20, mid=1)
 time.sleep(5)
 data = list()
-lock = threading.Lock()
+
 write_idx = 0
 planned = list()
 # reponse is True as the last command of taking off with alignment using go mid finished
@@ -119,7 +119,9 @@ def writer_thread():
                 pred_file.write("%f %f %f %f %f %f\n"
                                 % (predicted[0, 0], predicted[0, 1], predicted[0, 2],
                                    predicted[0, 3], predicted[0, 4], predicted[0, 5]))
-            planned_file.write("%f %f %f\n" % (planned[write_idx][0], planned[write_idx][1], planned[write_idx][2]))
+            planned_file.write("%f %f %f\n" % (planned[write_idx][0],
+                                               planned[write_idx][1],
+                                               planned[write_idx][2]))
             write_idx = write_idx + 1
 
 
