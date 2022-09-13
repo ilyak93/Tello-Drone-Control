@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 from TartanVO.Datasets.utils import Compose, CropCenter, DownscaleFlow, ToTensor, make_intrinsics_layer
 from TartanVO.TartanVO import TartanVO
+from tello_with_optitrack.position import connectOptitrack, telloState
 
 
 # function for gettig the average location during 1 sec of measurements
@@ -77,6 +78,10 @@ unsqueeze_transform = Unsqueeze()
 # res['motion'] = groundTruth
 
 # connect, enable missions pads detection and show battery
+body_id_drone1 = 320  # Drone's ID in Motive
+body_id_patch = 308  # Patch's ID in Motive
+
+streamingClient = connectOptitrack(body_id_drone1, body_id_patch)
 
 tello = Tello()
 tello.connect()
@@ -141,6 +146,7 @@ def recorder_thread(tello, reader):
         if data[-1][1][6] == -1:
             break
         state = tello.get_current_state()
+        #curr_state = telloState(streamingClient)
         cur_frame = reader.frame
         sample = {'img1': data[-1][0], 'img2': cur_frame}
         h, w, _ = cur_frame.shape
@@ -221,3 +227,4 @@ writer.join()
 # carrot chasing should sleep_wait until gets a signal from recorder
 # that it recorded the last True executed command
 # recorder should sleep_wait while command yet sent to tello drone
+
