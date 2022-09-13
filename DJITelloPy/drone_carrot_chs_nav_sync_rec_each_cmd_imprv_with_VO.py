@@ -93,7 +93,7 @@ tello.streamon()
 time.sleep(1)
 # take off
 tello.takeoff()
-tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=100, mid=1)
+tello.go_xyz_speed_mid(x=0, y=0, z=100, speed=20, mid=1)
 time.sleep(5)
 data = list()
 
@@ -215,12 +215,12 @@ while True:
         response.set()
         break
     cur_command = threading.Thread(target=tello.go_xyz_speed,
-                                   args=(round(x_move), round(y_move), 0, 100))  # args=(x,y,z,speed)
+                                   args=(round(x_move), round(y_move), 0, 20))  # args=(x,y,z,speed)
     cur_command.start()
     time.sleep(0.25)
     for i in range(records_during_movement):
         response.set()
-        time.sleep(0.015)
+        time.sleep(0.25)
         if data[-1][1][6] == -1:
             break
     cur_command.join()
