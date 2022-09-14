@@ -12,28 +12,6 @@ from TartanVO.TartanVO import TartanVO
 from tello_with_optitrack.position import connectOptitrack, telloState
 
 
-# function for gettig the average location during 1 sec of measurements
-def get_xyz_pad(tello):
-    # start = time.time()
-    avg, count = ((0, 0, 0), 0)
-    # avg, count, cur_xyz  = ((0, 0, 0), 0, [])
-    for i in range(1000):
-        state = tello.get_current_state()
-        if state["mid"] < 0:
-            continue
-        count = count + 1
-        avg = (avg[0] + state["x"], avg[1] + state["y"], avg[2] + state["z"])
-        # cur_xyz.append((state["x"], state["y"],  state["z"]))
-        # time.sleep(0.1)
-        # detect and react to pads until we see pad #1
-    if count == 0:
-        return ((0, 0, 0), -1)
-    avg = (avg[0] / count, avg[1] / count, avg[2] / count)
-    # end = time.time()
-    # print('elapsed time ' + str(end - start))
-    return (avg, state["mid"])
-
-
 tello_intrinsics = [
     [785.75708966, 0., 494.5589324],
     [0., 781.95811828, 319.88369613],
@@ -78,10 +56,15 @@ unsqueeze_transform = Unsqueeze()
 # res['motion'] = groundTruth
 
 # connect, enable missions pads detection and show battery
-body_id_drone1 = 320  # Drone's ID in Motive
+body_id_drone1 = 328  # Drone's ID in Motive
 body_id_patch = 308  # Patch's ID in Motive
 
 streamingClient = connectOptitrack(body_id_drone1, body_id_patch)
+
+#opti_state = telloState(streamingClient)
+#pitch, roll, yaw = opti_state[1]
+#x, z, y = opti_state[2][0:3, 3]
+
 
 tello = Tello()
 tello.connect()
@@ -115,10 +98,10 @@ def writer_thread():
                 open('data/pose_planned.txt', 'w+') as planned_file:
         while len(data) > write_idx:
             img = data[write_idx][0]
-            x, y, z, pitch, roll, yaw, pad = data[write_idx][1]
+            x, y, z, pitch, roll, yaw = data[write_idx][1]
             im = Image.fromarray(img)
             im.save('./data/' + str(write_idx) + '.png')
-            gt_file.write("%f %f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw, pad))
+            gt_file.write("%f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw))
             if write_idx >= 1:
                 predicted = data[write_idx][2]
                 pred_file.write("%f %f %f %f %f %f\n"
@@ -145,8 +128,10 @@ def recorder_thread(tello, reader):
         response.wait()
         if data[-1][1][6] == -1:
             break
-        state = tello.get_current_state()
-        #curr_state = telloState(streamingClient)
+        #state = tello.get_current_state()
+        opti_state = telloState(streamingClient)
+        pitch, roll, yaw = opti_state[1]
+        x, z, y = opti_state[2][0:3, 3]
         cur_frame = reader.frame
         sample = {'img1': data[-1][0], 'img2': cur_frame}
         h, w, _ = cur_frame.shape
@@ -155,9 +140,10 @@ def recorder_thread(tello, reader):
         sample = transform(sample)
         sample = unsqueeze_transform(sample)
         VO_motions, VO_flow = testvo.test_batch(sample)
-        data.append([reader.frame, (state['x'], state['y'], state['z'],
-                                    state["pitch"], state["roll"],
-                                    state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
+        #data.append([reader.frame, (state['x'], state['y'], state['z'],
+        #                            state["pitch"], state["roll"],
+        #                            state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
+        data.append([reader.frame, (x, y, z, pitch, roll, yaw), VO_motions, [x_move, y_move, 0]])
         ready.set()
         response.clear()
 
@@ -183,16 +169,13 @@ while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
     # print("loc = " + str(executed[-1]))
-    (cur_x, cur_y, cur_z, _, _, _, cur_pad) = data[-1][1]
+    (cur_x, cur_y, cur_z, _, _, _) = data[-1][1]
     x_move, y_move = R, 0
     if cur_y != 0:
-        cur_y_dist_from_pad = cur_y + distance_btw_pads * int(cur_pad in [2, 5]) - \
-                              distance_btw_pads * int(cur_pad in [3, 6])
-        tan_alpha = delta_lookahead / abs(cur_y_dist_from_pad)
+        tan_alpha = delta_lookahead / abs(cur_y)
         # (tan_alpha+1)*y**2 = R**2 --> y = math.sqrt(R**2 / (tan_alpha+1))
         y_move_abs = math.sqrt(R ** 2 / (tan_alpha + 1))
-        y_move = float(y_move_abs) if (cur_y < 0 and cur_pad in [1, 4, 7]) or \
-                                      (cur_pad in [3, 6]) else float(-y_move_abs)
+        y_move = float(y_move_abs) if cur_y < 0 else float(-y_move_abs)
         x_move = math.sqrt(R ** 2 - y_move ** 2)
         # print("xmove and ymove are: " + str(x_move) + ',' + str(y_move))
         if abs(x_move) < 20.0 and abs(y_move) < 20.0:
