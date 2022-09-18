@@ -99,11 +99,14 @@ tello.streamon()
 time.sleep(1)
 # take off
 tello.takeoff()
+time.sleep(3)
 tello.go_xyz_speed_mid(x=0, y=0, z=150, speed=100, mid=1)
 time.sleep(5)
 
 tello.disable_mission_pads()
 time.sleep(0.1)
+
+data = list()
 
 reader = tello.get_frame_read()
 
@@ -121,12 +124,12 @@ SE_patch_NED = SE_motive2telloNED(patch_SE_motive, T_w_b0_inv)
 
 data.append([reader.frame, SE_tello_NED, SE_patch_NED])
 
-target_pos = data[-1][0:3, 3] + (200, 0, 0)
+target_pos = data[-1][1][0:3, 3] + (200, 0, 0)
 
 patch_detected = ad.are_4_markers_detected(data[-1][0])
 print("Patch detected: " + str(patch_detected))
 
-data = list()
+
 
 write_idx = 0
 planned = list()
@@ -176,7 +179,7 @@ def recorder_thread(reader):
     while True:
         ready.set()
         response.wait()
-        if math.dist(data[-1][0:3, 3] - target_pos) <= 30:
+        if math.dist(data[-1][1][0:3, 3] - target_pos) <= 30:
             break
         # state = tello.get_current_state()
         opti_state = telloState(streamingClient)
@@ -220,7 +223,7 @@ while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
     # print("loc = " + str(executed[-1]))
-    (cur_x, cur_y, cur_z) = data[-1][0:3, 3]
+    (cur_x, cur_y, cur_z) = data[-1][1][0:3, 3]
     x_move, y_move = R, 0
     if cur_y != 0:
         tan_alpha = delta_lookahead / abs(cur_y)
@@ -240,7 +243,7 @@ while True:
     planned.append((round(x_move), round(y_move), 0))
 
     ready.wait()
-    if math.dist(data[-1][0:3, 3] - target_pos) <= 30:
+    if math.dist(data[-1][1][0:3, 3] - target_pos) <= 30:
         response.set()
         break
     tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
