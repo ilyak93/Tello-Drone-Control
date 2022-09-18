@@ -110,6 +110,7 @@ data = list()
 
 reader = tello.get_frame_read()
 
+cur_frame = reader.frame
 curr_state = telloState(streamingClient)
 patch_state = patchState(streamingClient)
 
@@ -122,7 +123,7 @@ SE_patch_NED = SE_motive2telloNED(patch_SE_motive, T_w_b0_inv)
 # patch_pose_VO_writer.writerow(list(SE_patch_NED[0]) + list(SE_patch_NED[1]) + list(SE_patch_NED[2]))
 #patch_pose_VO_file.close()
 
-data.append([reader.frame, SE_tello_NED, SE_patch_NED])
+data.append([cur_frame, SE_tello_NED, SE_patch_NED])
 
 target_pos = data[-1][1][0:3, 3] + (200, 50, 0)
 
