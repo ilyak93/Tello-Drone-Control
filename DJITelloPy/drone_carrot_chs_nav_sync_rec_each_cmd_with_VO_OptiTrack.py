@@ -210,7 +210,7 @@ def recorder_thread(reader):
 
 # start recorder and writer threads
 
-recorder = threading.Thread(target=recorder_thread, args=([tello, reader]))
+recorder = threading.Thread(target=recorder_thread, args=([reader]))
 recorder.start()
 
 distance_btw_pads = 50
