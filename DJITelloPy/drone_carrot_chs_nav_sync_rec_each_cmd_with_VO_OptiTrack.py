@@ -100,7 +100,7 @@ time.sleep(1)
 # take off
 tello.takeoff()
 time.sleep(3)
-tello.go_xyz_speed_mid(x=0, y=0, z=150, speed=100, mid=1)
+tello.go_xyz_speed_mid(x=0, y=0, z=150, speed=20, mid=1)
 time.sleep(5)
 
 tello.disable_mission_pads()
@@ -124,7 +124,9 @@ SE_patch_NED = SE_motive2telloNED(patch_SE_motive, T_w_b0_inv)
 
 data.append([reader.frame, SE_tello_NED, SE_patch_NED])
 
-target_pos = data[-1][1][0:3, 3] + (200, 0, 0)
+target_pos = data[-1][1][0:3, 3] + (200, 50, 0)
+
+cur_pos = data[-1][1][0:3, 3]
 
 patch_detected = ad.are_4_markers_detected(data[-1][0])
 print("Patch detected: " + str(patch_detected))
@@ -175,11 +177,12 @@ ready = threading.Event()
 
 # TODO: make data a readable dict
 def recorder_thread(reader):
-    global response, data, ready, focalx, focaly, centerx, centery, transform
+    global response, data, ready, focalx, focaly, centerx, centery, transform,\
+           cur_pos
     while True:
         ready.set()
         response.wait()
-        if math.dist(data[-1][1][0:3, 3] - target_pos) <= 30:
+        if math.sqrt(sum((cur_pos - target_pos)**2)) <= 30:
             break
         # state = tello.get_current_state()
         opti_state = telloState(streamingClient)
@@ -202,8 +205,10 @@ def recorder_thread(reader):
         # data.append([reader.frame, (state['x'], state['y'], state['z'],
         #                            state["pitch"], state["roll"],
         #                            state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
-        data.append([reader.frame, SE_tello_NED, SE_patch_NED, VO_motions,
+        data.append([cur_frame, SE_tello_NED, SE_patch_NED, VO_motions,
                      [x_move, y_move, 0]])
+        cur_pos = cur_pos + data[-1][1][0:3, 3]
+        print("current pos is " + str(cur_pos))
         ready.set()
         response.clear()
 
@@ -223,7 +228,7 @@ while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
     # print("loc = " + str(executed[-1]))
-    (cur_x, cur_y, cur_z) = data[-1][1][0:3, 3]
+    (cur_x, cur_y, cur_z) = cur_pos
     x_move, y_move = R, 0
     if cur_y != 0:
         tan_alpha = delta_lookahead / abs(cur_y)
@@ -243,7 +248,7 @@ while True:
     planned.append((round(x_move), round(y_move), 0))
 
     ready.wait()
-    if math.dist(data[-1][1][0:3, 3] - target_pos) <= 30:
+    if math.sqrt(sum((cur_pos - target_pos)**2)) <= 30:
         response.set()
         break
     tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
