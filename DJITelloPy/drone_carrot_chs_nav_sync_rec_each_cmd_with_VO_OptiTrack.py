@@ -218,7 +218,7 @@ while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
     # print("loc = " + str(executed[-1]))
-    (cur_x, cur_y, cur_z, _, _, _) = data[-1][1]
+    (cur_x, cur_y, cur_z) = data[1][0:3, 3]
     x_move, y_move = R, 0
     if cur_y != 0:
         tan_alpha = delta_lookahead / abs(cur_y)
