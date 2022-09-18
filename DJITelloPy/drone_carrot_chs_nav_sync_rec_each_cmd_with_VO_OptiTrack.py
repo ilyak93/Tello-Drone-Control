@@ -107,9 +107,6 @@ time.sleep(0.1)
 
 reader = tello.get_frame_read()
 
-patch_detected = ad.are_4_markers_detected(reader.frame)
-print("Patch detected: " + str(patch_detected))
-
 curr_state = telloState(streamingClient)
 patch_state = patchState(streamingClient)
 
@@ -123,6 +120,11 @@ SE_patch_NED = SE_motive2telloNED(patch_SE_motive, T_w_b0_inv)
 #patch_pose_VO_file.close()
 
 data.append([reader.frame, SE_tello_NED, SE_patch_NED])
+
+target_pos = data[-1][0:3, 3] + (200, 0, 0)
+
+patch_detected = ad.are_4_markers_detected(data[-1][0])
+print("Patch detected: " + str(patch_detected))
 
 data = list()
 
@@ -141,7 +143,7 @@ def writer_thread():
             SE_tello_NED = data[write_idx][1]
             SE_patch_NED = data[write_idx][2]
             im = Image.fromarray(img)
-            im.save('./data/' + str(write_idx) + '.png')
+            im.save('BASE_RENDER_DIR' + str(write_idx) + '.png')
 
             labels_writer = csv.writer(labels_file)
             patch_pose_VO_writer = csv.writer(patch_pose_VO_file)
@@ -174,7 +176,7 @@ def recorder_thread(reader):
     while True:
         ready.set()
         response.wait()
-        if data[-1][1][6] == -1:
+        if math.dist(data[-1][0:3, 3] - target_pos) <= 30:
             break
         # state = tello.get_current_state()
         opti_state = telloState(streamingClient)
@@ -218,7 +220,7 @@ while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
     # print("loc = " + str(executed[-1]))
-    (cur_x, cur_y, cur_z) = data[1][0:3, 3]
+    (cur_x, cur_y, cur_z) = data[-1][0:3, 3]
     x_move, y_move = R, 0
     if cur_y != 0:
         tan_alpha = delta_lookahead / abs(cur_y)
@@ -238,14 +240,17 @@ while True:
     planned.append((round(x_move), round(y_move), 0))
 
     ready.wait()
-    if data[-1][1][6] == -1:
+    if math.dist(data[-1][0:3, 3] - target_pos) <= 30:
         response.set()
         break
-    tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=100)
+    tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
     time.sleep(3)
     ready.clear()
     response.set()
     ready.wait()
+    patch_detected = ad.are_4_markers_detected(data[-1][0])
+    print("Patch detected: " + str(patch_detected))
+
 
 tello.land()
 tello.end()
