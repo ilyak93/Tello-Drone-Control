@@ -81,6 +81,10 @@ body_id_patch = 308  # Patch's ID in Motive
 # connect to Opti-Track
 streamingClient = connectOptitrack(body_id_drone1, body_id_patch)
 
+if not streamingClient:
+    print("Optitrack connection error")
+    exit(-1)
+
 # Initialize the Aruco detector:
 ad = ArucoDetector(calib_filename=cam_calib_fname, aruco_type=cv2.aruco.DICT_4X4_50)
 
@@ -125,9 +129,17 @@ SE_patch_NED = SE_motive2telloNED(patch_SE_motive, T_w_b0_inv)
 
 data.append([cur_frame, SE_tello_NED, SE_patch_NED])
 
-target_pos = data[-1][1][0:3, 3] + (200, 50, 0)
+m_to_cm = 100
+
+target_translation_from_initial = (250, 0, 0) # in meters
+
+target_pos = data[-1][1][0:3, 3] + target_translation_from_initial
 
 cur_pos = data[-1][1][0:3, 3]
+
+print("initial pose " + str(cur_pos))
+
+print("target_pos pose " + str(target_pos))
 
 patch_detected = ad.are_4_markers_detected(data[-1][0])
 print("Patch detected: " + str(patch_detected))
@@ -149,13 +161,14 @@ def writer_thread():
             SE_tello_NED = data[write_idx][1]
             SE_patch_NED = data[write_idx][2]
             im = Image.fromarray(img)
-            im.save('BASE_RENDER_DIR' + str(write_idx) + '.png')
+            im.save(BASE_RENDER_DIR + str(write_idx) + '.png')
 
             labels_writer = csv.writer(labels_file)
             patch_pose_VO_writer = csv.writer(patch_pose_VO_file)
 
             labels_writer.writerow(list(SE_tello_NED[0]) + list(SE_tello_NED[1]) + list(SE_tello_NED[2]))
             patch_pose_VO_writer.writerow(list(SE_patch_NED[0]) + list(SE_patch_NED[1]) + list(SE_patch_NED[2]))
+            write_idx = write_idx + 1
 
             #gt_file.write("%f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw))
             #if write_idx >= 1:
@@ -166,7 +179,7 @@ def writer_thread():
             #planned_file.write("%f %f %f\n" % (planned[write_idx][0],
             #                                   planned[write_idx][1],
             #                                   planned[write_idx][2]))
-            #write_idx = write_idx + 1
+
 
 
 # last is False as last recording which is the first in this case have not done yet
@@ -174,6 +187,8 @@ last = False
 
 response = threading.Event()
 ready = threading.Event()
+
+target_radius = 30
 
 
 # TODO: make data a readable dict
@@ -183,7 +198,8 @@ def recorder_thread(reader):
     while True:
         ready.set()
         response.wait()
-        if math.sqrt(sum((cur_pos - target_pos)**2)) <= 30:
+        print("dist from target " + str(math.sqrt(sum((cur_pos - target_pos) ** 2))))
+        if math.sqrt(sum((cur_pos - target_pos) ** 2)) <= target_radius:
             break
         # state = tello.get_current_state()
         opti_state = telloState(streamingClient)
@@ -208,7 +224,7 @@ def recorder_thread(reader):
         #                            state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
         data.append([cur_frame, SE_tello_NED, SE_patch_NED, VO_motions,
                      [x_move, y_move, 0]])
-        cur_pos = cur_pos + data[-1][1][0:3, 3]
+        cur_pos = cur_pos + data[-1][1][0:3, 3] * m_to_cm
         print("current pos is " + str(cur_pos))
         ready.set()
         response.clear()
@@ -235,7 +251,7 @@ while True:
         tan_alpha = delta_lookahead / abs(cur_y)
         # (tan_alpha+1)*y**2 = R**2 --> y = math.sqrt(R**2 / (tan_alpha+1))
         y_move_abs = math.sqrt(R ** 2 / (tan_alpha + 1))
-        y_move = float(y_move_abs) if cur_y < 0 else float(-y_move_abs)
+        y_move = float(y_move_abs) if cur_y > 0 else float(-y_move_abs)
         x_move = math.sqrt(R ** 2 - y_move ** 2)
         # print("xmove and ymove are: " + str(x_move) + ',' + str(y_move))
         if abs(x_move) < 20.0 and abs(y_move) < 20.0:
@@ -249,7 +265,7 @@ while True:
     planned.append((round(x_move), round(y_move), 0))
 
     ready.wait()
-    if math.sqrt(sum((cur_pos - target_pos)**2)) <= 30:
+    if math.sqrt(sum((cur_pos - target_pos)**2)) <= target_radius:
         response.set()
         break
     tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
