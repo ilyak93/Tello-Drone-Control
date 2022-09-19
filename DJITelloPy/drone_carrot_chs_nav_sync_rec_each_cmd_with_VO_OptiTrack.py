@@ -135,9 +135,7 @@ target_translation_from_initial = (250, 0, 0) # in meters
 
 target_pos = data[-1][1][0:3, 3] + target_translation_from_initial
 
-cur_pos = data[-1][1][0:3, 3]
-
-print("initial pose " + str(cur_pos))
+initial_pos = data[-1][1][0:3, 3]
 
 print("target_pos pose " + str(target_pos))
 
@@ -155,30 +153,30 @@ response = True
 def writer_thread():
     global data, write_idx, planned
     with open(labels_filename, 'w') as labels_file, \
-            open(patch_pose_VO_filename, 'w') as patch_pose_VO_file :
+            open(patch_pose_VO_filename, 'w') as patch_pose_VO_file:
+        labels_writer = csv.writer(labels_file)
         while len(data) > write_idx:
             img = data[write_idx][0]
             SE_tello_NED = data[write_idx][1]
-            SE_patch_NED = data[write_idx][2]
+
             im = Image.fromarray(img)
             im.save(BASE_RENDER_DIR + str(write_idx) + '.png')
 
-            labels_writer = csv.writer(labels_file)
-            patch_pose_VO_writer = csv.writer(patch_pose_VO_file)
-
             labels_writer.writerow(list(SE_tello_NED[0]) + list(SE_tello_NED[1]) + list(SE_tello_NED[2]))
-            patch_pose_VO_writer.writerow(list(SE_patch_NED[0]) + list(SE_patch_NED[1]) + list(SE_patch_NED[2]))
             write_idx = write_idx + 1
+        patch_pose_VO_writer = csv.writer(patch_pose_VO_file)
+        SE_patch_NED = data[0][2]
+        patch_pose_VO_writer.writerow(list(SE_patch_NED[0]) + list(SE_patch_NED[1]) + list(SE_patch_NED[2]))
 
-            #gt_file.write("%f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw))
-            #if write_idx >= 1:
-            #    predicted = data[write_idx][2]
-            #    pred_file.write("%f %f %f %f %f %f\n"
-            #                    % (predicted[0, 0], predicted[0, 1], predicted[0, 2],
-            #                       predicted[0, 3], predicted[0, 4], predicted[0, 5]))
-            #planned_file.write("%f %f %f\n" % (planned[write_idx][0],
-            #                                   planned[write_idx][1],
-            #                                   planned[write_idx][2]))
+        #gt_file.write("%f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw))
+        #if write_idx >= 1:
+        #    predicted = data[write_idx][2]
+        #    pred_file.write("%f %f %f %f %f %f\n"
+        #                    % (predicted[0, 0], predicted[0, 1], predicted[0, 2],
+        #                       predicted[0, 3], predicted[0, 4], predicted[0, 5]))
+        #planned_file.write("%f %f %f\n" % (planned[write_idx][0],
+        #                                   planned[write_idx][1],
+        #                                   planned[write_idx][2]))
 
 
 
@@ -190,18 +188,16 @@ ready = threading.Event()
 
 target_radius = 30
 
-
 # TODO: make data a readable dict
 def recorder_thread(reader):
-    global response, data, ready, focalx, focaly, centerx, centery, transform,\
-           cur_pos
+    global response, data, ready, focalx, focaly, centerx, centery, transform
     while True:
         ready.set()
         response.wait()
-        print("dist from target " + str(math.sqrt(sum((cur_pos - target_pos) ** 2))))
-        if math.sqrt(sum((cur_pos - target_pos) ** 2)) <= target_radius:
+        cur_pose = data[-1][1][0:3, 3] * m_to_cm
+        print("dist from target " + str(math.sqrt(sum((cur_pose[:2] - target_pos[:2]) ** 2))))
+        if math.sqrt(sum((cur_pose[:2] - target_pos[:2]) ** 2)) <= target_radius:
             break
-        # state = tello.get_current_state()
         opti_state = telloState(streamingClient)
         SE_motive = opti_state[-1]
         SE_tello_NED = SE_motive2telloNED(SE_motive, T_w_b0_inv)
@@ -222,10 +218,10 @@ def recorder_thread(reader):
         # data.append([reader.frame, (state['x'], state['y'], state['z'],
         #                            state["pitch"], state["roll"],
         #                            state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
-        data.append([cur_frame, SE_tello_NED, SE_patch_NED, VO_motions,
+        data.append([cur_frame, SE_tello_NED, VO_motions,
                      [x_move, y_move, 0]])
-        cur_pos = cur_pos + data[-1][1][0:3, 3] * m_to_cm
-        print("current pos is " + str(cur_pos))
+
+        print("current pos is " + str(cur_pose))
         ready.set()
         response.clear()
 
@@ -245,7 +241,8 @@ while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
     # print("loc = " + str(executed[-1]))
-    (cur_x, cur_y, cur_z) = cur_pos
+    (cur_x, cur_y, cur_z) = data[-1][1][0:3, 3] * m_to_cm
+    cur_poz = (cur_x, cur_y, cur_z)
     x_move, y_move = R, 0
     if cur_y != 0:
         tan_alpha = delta_lookahead / abs(cur_y)
@@ -265,7 +262,7 @@ while True:
     planned.append((round(x_move), round(y_move), 0))
 
     ready.wait()
-    if math.sqrt(sum((cur_pos - target_pos)**2)) <= target_radius:
+    if math.sqrt(sum((cur_poz[:2] - target_pos[:2]) ** 2)) <= target_radius:
         response.set()
         break
     tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
