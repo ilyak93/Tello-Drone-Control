@@ -35,6 +35,45 @@ def connectOptitrack(body_id_drone1, body_id_patch):
 	return streamingClient
 
 
+import math
+
+def euler_from_quaternion(x, y, z, w):
+	"""
+    Convert a quaternion into euler angles (roll, pitch, yaw)
+    roll is rotation around x in radians (counterclockwise)
+    pitch is rotation around y in radians (counterclockwise)
+    yaw is rotation around z in radians (counterclockwise)
+    """
+	t0 = +2.0 * (w * x + y * z)
+	t1 = +1.0 - 2.0 * (x * x + y * y)
+	roll_x = math.atan2(t0, t1)
+
+	t2 = +2.0 * (w * y - z * x)
+	t2 = +1.0 if t2 > +1.0 else t2
+	t2 = -1.0 if t2 < -1.0 else t2
+	pitch_y = math.asin(t2)
+
+	t3 = +2.0 * (w * z + x * y)
+	t4 = +1.0 - 2.0 * (y * y + z * z)
+	yaw_z = math.atan2(t3, t4)
+
+	return roll_x, pitch_y, yaw_z  # in radians
+
+
+def quaternion_to_rotation_matrix(q):
+	"""Return a 3x3 rotation matrix representing the orientation specified by a quaternion in x,y,z,w format.
+    The matrix is a Python list of lists.
+    """
+
+	x = q[0]
+	y = q[1]
+	z = q[2]
+	w = q[3]
+
+	return [[w * w + x * x - y * y - z * z, 2 * (x * y - w * z), 2 * (x * z + w * y)],
+			[2 * (x * y + w * z), w * w - x * x + y * y - z * z, 2 * (y * z - w * x)],
+			[2 * (x * z - w * y), 2 * (y * z + w * x), w * w - x * x - y * y + z * z]]
+
 def telloState(streamingClient):
 
 	# Retrieve rigid body data from OptiTrack.
@@ -43,8 +82,8 @@ def telloState(streamingClient):
 	pos = np.vstack(pos)
 	#print('pos = ', pos)
 	
-	quat = streamingClient.rigidBodyListener[0, 2]
-	quat = np.vstack(quat)
+	quato = streamingClient.rigidBodyListener[0, 2]
+	quat = np.vstack(quato)
 	#print('quat', quat)
 	# Rotate coordinates to aircraft standard (forward x, right y, down z) from
 	# (forward x, right z, up y).
@@ -53,10 +92,22 @@ def telloState(streamingClient):
 	SE_motive = pos_quat2SE(pos_quat)
 	#print('%%% SE = ', SE_motive)
 
+
 	# 'zyx' works, but need to swap euler[0] and euler[2]:
 	euler_motive = R.from_matrix(SE_motive[0:3, 0:3]).as_euler('zyx', degrees=False)
-	#euler = R.from_quat(quat.squeeze()).as_euler('zyx', degrees=False) 
+	#new_quat = np.vstack([quato[0], quato[2], -quato[1], quato[3]])
+	#euler_matrix = quaternion_to_rotation_matrix([quato[0], -quato[2], quato[1], quato[3]])
+	#euler_motive = euler_from_quaternion(quato[0], quato[2], quato[1], -quato[3])
+
+	#euler_motive = R.from_quat(new_quat.squeeze()).as_euler('zyx', degrees=False)
 	euler_motive = np.flip(euler_motive)
+
+	#euler_motive = R.from_matrix(euler_matrix).as_euler('zxy', degrees=False)
+	#qx, qy, qz, qw = quato[3], -quato[0], -quato[1], quato[3]
+	#my_quat = np.vstack([qx, qy, qz, qw])
+
+	#euler_motive = R.from_quat(my_quat.squeeze()).as_euler('xyz', degrees=True)
+
 
 	#euler = Eul_FromQuat(quat.squeeze())
 
@@ -83,11 +134,11 @@ def patchState(streamingClient):
 	id_num = streamingClient.rigidBodyListener[1, 0]
 	pos = streamingClient.rigidBodyListener[1, 1]
 	pos = np.vstack(pos)
-	print('Patch_pos = ', pos)
+	#print('Patch_pos = ', pos)
 	
 	quat = streamingClient.rigidBodyListener[1, 2]
 	quat = np.vstack(quat)
-	print('Patch_quat', quat)
+	#print('Patch_quat', quat)
 	# Rotate coordinates to aircraft standard (forward x, right y, down z) from
 	# (forward x, right z, up y).
 	pos_quat = np.concatenate((pos, quat), axis=0).squeeze()
@@ -342,12 +393,45 @@ def calc_initial_SE_motive2telloNED_inv(T_w_0):
 	return T_w_b0_inv
 
 
+def calc_initial_SE_motive2telloNED_inv_v2(T_w_0):
+	quat_inv_transform = np.array([-1, 0, 0, 1])
+	pos_quat_inv = np.concatenate((np.array([0, 0, 0]), quat_inv_transform), axis=0).squeeze()
+	SE_transform_inv = pos_quat2SE(pos_quat_inv)
+	T_w_b0_inv = T_w_0 @ SE_transform_inv
+	return T_w_b0_inv
+
+
 def SE_motive2telloNED(SE_motive, T_w_b0_inv):
 	T_Yup2NED_inv = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
 	T_Yup2NED = invert_SE(T_Yup2NED_inv)
 	T_w_bi = SE_motive @ T_Yup2NED
 	T_b0_bi = T_w_b0_inv @ T_w_bi
 	return T_b0_bi
+
+def SE_motive2telloNED_v2(SE_motive, T_w_b0_inv):
+	quat_inv_transform = np.array([-1, 0, 0, 1])
+	pos_quat_inv = np.concatenate((np.array([0, 0, 0]), quat_inv_transform), axis=0).squeeze()
+	SE_transform_inv = pos_quat2SE(pos_quat_inv)
+	SE_tello_abs = SE_motive @ SE_transform_inv
+	T_b0_bi = T_w_b0_inv @ SE_tello_abs
+	return T_b0_bi
+
+def SE_motive2tello_absNED(SE_motive):
+	T_Yup2NED_inv = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
+	T_Yup2NED = invert_SE(T_Yup2NED_inv)
+	SE_tello_abs = SE_motive @ T_Yup2NED
+	return SE_tello_abs
+
+def SE_motive2tello_absNED_v2(SE_motive):
+	quat_inv_transform = np.array([-1, 0, 0, 1])
+	pos_quat_inv = np.concatenate((np.array([0, 0, 0]), quat_inv_transform), axis=0).squeeze()
+	SE_transform_inv = pos_quat2SE(pos_quat_inv)
+	SE_tello_abs = SE_motive @ SE_transform_inv
+	return SE_tello_abs
+
+
+
+
 
 
 def tello_go_xyz_speed_from_NED(tello, x, y, z, speed):
@@ -371,4 +455,5 @@ def mean_std_hovering(streamingClient, N_samples=10):
 		states[idx, :] = pos
 	return np.mean(states, axis=0), np.std(states, axis = 0)
 	
+
 
