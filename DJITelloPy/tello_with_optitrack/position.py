@@ -5,6 +5,7 @@ from tello_with_optitrack.NatNetClient import NatNetClient
 from scipy.spatial.transform import Rotation as R
 
 
+
 def connectOptitrack(body_id_drone1, body_id_patch):
 	timeout_s = 10
 	# This will create a new NatNet client
