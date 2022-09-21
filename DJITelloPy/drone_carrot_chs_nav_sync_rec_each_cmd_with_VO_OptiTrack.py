@@ -30,6 +30,9 @@ if not os.path.exists(render_dir):
 labels_filename = os.path.join(render_dir, 'pose_file.csv')  # For pose in VO frame
 patch_pose_VO_filename = os.path.join(render_dir, 'patch_pose_VO.csv')
 
+#TODO: add rotations to carrot chasing and correct recording accordingly 
+
+#TODO: add carrot chasing with z-axis
 
 tello_intrinsics = [
     [785.75708966, 0., 494.5589324],
