@@ -30,9 +30,11 @@ if not os.path.exists(render_dir):
 labels_filename = os.path.join(render_dir, 'pose_file.csv')  # For pose in VO frame
 patch_pose_VO_filename = os.path.join(render_dir, 'patch_pose_VO.csv')
 
-#TODO: add rotations to carrot chasing and correct recording accordingly 
+# TODO: add rotations to carrot chasing and correct recording accordingly
 
-#TODO: add carrot chasing with z-axis
+# TODO: make carrot chasing relative to chosen y and z of the target
+
+# TODO: add carrot chasing with z-axis
 
 tello_intrinsics = [
     [785.75708966, 0., 494.5589324],
@@ -68,6 +70,10 @@ class Unsqueeze(object):
 image_width, image_height = 640, 448
 transform = Compose([CropCenter((image_height, image_width)), DownscaleFlow(), ToTensor()])
 unsqueeze_transform = Unsqueeze()
+
+# first run the script to get initial_rotation_view
+# which should be aligned to the target (directly in front of it)
+initial_rotation_view = np.load("initial_rotation_view.npy")
 
 # how to run the VO on VO:
 # res = {'img1': img1, 'img2': img2 }
@@ -128,13 +134,13 @@ SE_tello_NED = np.array(SE_motive2telloNED(SE_motive, T_w_b0_inv))
 # labels_writer.writerow(list(SE_tello_NED[0]) + list(SE_tello_NED[1]) + list(SE_tello_NED[2]))
 SE_patch_NED = SE_motive2telloNED(patch_SE_motive, T_w_b0_inv)
 # patch_pose_VO_writer.writerow(list(SE_patch_NED[0]) + list(SE_patch_NED[1]) + list(SE_patch_NED[2]))
-#patch_pose_VO_file.close()
+# patch_pose_VO_file.close()
 
 data.append([cur_frame, SE_tello_NED, SE_patch_NED])
 
 m_to_cm = 100
 
-target_translation_from_initial = (250, 0, 0) # in meters
+target_translation_from_initial = (250, 0, 0)  # in meters
 
 target_pos = data[-1][1][0:3, 3] + target_translation_from_initial
 
@@ -144,8 +150,6 @@ print("target_pos pose " + str(target_pos))
 
 patch_detected = ad.are_4_markers_detected(data[-1][0])
 print("Patch detected: " + str(patch_detected))
-
-
 
 write_idx = 0
 planned = list()
@@ -171,16 +175,15 @@ def writer_thread():
         SE_patch_NED = data[0][2]
         patch_pose_VO_writer.writerow(list(SE_patch_NED[0]) + list(SE_patch_NED[1]) + list(SE_patch_NED[2]))
 
-        #gt_file.write("%f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw))
-        #if write_idx >= 1:
+        # gt_file.write("%f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw))
+        # if write_idx >= 1:
         #    predicted = data[write_idx][2]
         #    pred_file.write("%f %f %f %f %f %f\n"
         #                    % (predicted[0, 0], predicted[0, 1], predicted[0, 2],
         #                       predicted[0, 3], predicted[0, 4], predicted[0, 5]))
-        #planned_file.write("%f %f %f\n" % (planned[write_idx][0],
+        # planned_file.write("%f %f %f\n" % (planned[write_idx][0],
         #                                   planned[write_idx][1],
         #                                   planned[write_idx][2]))
-
 
 
 # last is False as last recording which is the first in this case have not done yet
@@ -190,6 +193,7 @@ response = threading.Event()
 ready = threading.Event()
 
 target_radius = 30
+
 
 # TODO: make data a readable dict
 def recorder_thread(reader):
@@ -204,11 +208,11 @@ def recorder_thread(reader):
         opti_state = telloState(streamingClient)
         SE_motive = opti_state[-1]
         SE_tello_NED = SE_motive2telloNED(SE_motive, T_w_b0_inv)
-        #euler = R.from_matrix(SE_tello_NED[0:3, 0:3]).as_euler('zyx', degrees=False)
-        #euler = euler / np.pi * 180.
-        #(pitch, roll, yaw) = np.flip(euler)
+        # euler = R.from_matrix(SE_tello_NED[0:3, 0:3]).as_euler('zyx', degrees=False)
+        # euler = euler / np.pi * 180.
+        # (pitch, roll, yaw) = np.flip(euler)
 
-        #x, z, y = opti_state[2][0:3, 3]
+        # x, z, y = opti_state[2][0:3, 3]
 
         cur_frame = reader.frame
         sample = {'img1': data[-1][0], 'img2': cur_frame}
@@ -275,7 +279,6 @@ while True:
     ready.wait()
     patch_detected = ad.are_4_markers_detected(data[-1][0])
     print("Patch detected: " + str(patch_detected))
-
 
 tello.land()
 tello.end()
