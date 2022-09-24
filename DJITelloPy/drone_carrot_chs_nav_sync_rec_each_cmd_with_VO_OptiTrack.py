@@ -152,14 +152,25 @@ target_pos = np.asarray([initial_x + 250, initial_opti_y, initial_z,
 if initial_y - target_pos[1] != 0:
     tan_alpha = delta_lookahead / abs(initial_y - target_pos[1])
 
-alpha_rad = math.atan(tan_alpha)
-alpha_deg = 90 - round(alpha_rad * 180. / math.pi)
-alpha_deg = alpha_deg if initial_y - target_pos[1] < 0 else -alpha_deg
+    alpha_rad = math.atan(tan_alpha)
+    alpha_deg = 90 - round(alpha_rad * 180. / math.pi)
+    alpha_deg = alpha_deg if initial_y - target_pos[1] < 0 else -alpha_deg
+    
+    tello.rotate_clockwise(alpha_deg)
+    time.sleep(3)
 
-tello.rotate_clockwise(alpha_deg)
-time.sleep(3)
-
+#TODO: finish this also for recorder
 cur_frame = reader.frame
+curr_state = telloState(streamingClient)
+SE_motive = curr_state[-1]  # in Y UP system
+SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
+euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degrees=False)
+euler = euler / np.pi * 180.
+(roll, pitch, yaw) = np.flip(euler)
+initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
+initial_x, initial_y = -initial_x, -initial_y
+
+
 data.append([cur_frame, SE_tello_NED, SE_patch_NED,
              np.array([initial_x, initial_y, initial_z, pitch, roll, yaw])])
 
@@ -237,20 +248,27 @@ def recorder_thread(reader):
         if cur_pose[1] - target_pos[1] != 0:
             tan_alpha = delta_lookahead / abs(cur_pose[1] - target_pos[1])
 
-        alpha_rad = math.atan(tan_alpha)
-        alpha_deg = 90 - round(alpha_rad * 180. / math.pi)
-        alpha_deg = alpha_deg if cur_pose[1] - target_pos[1] < 0 else -alpha_deg
+            alpha_rad = math.atan(tan_alpha)
+            alpha_deg = 90 - round(alpha_rad * 180. / math.pi)
+            alpha_deg = alpha_deg if cur_pose[1] - target_pos[1] < 0 else -alpha_deg
+    
+            cur_rotoation = alpha_deg - int(round(prev_yaw))
+            print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
+    
+            tello.rotate_clockwise(cur_rotoation)
+            time.sleep(3)
 
-        cur_rotoation = alpha_deg - int(round(prev_yaw))
-        print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
-
-        tello.rotate_clockwise(cur_rotoation)
-        time.sleep(3)
+        cur_frame = reader.frame
+        '''curr_state = telloState(streamingClient)
+        SE_motive = curr_state[-1]  # in Y UP system
+        SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
+        euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degrees=False)
+        euler = euler / np.pi * 180.
+        (roll, pitch, yaw) = np.flip(euler)'''
 
         patch_detected = ad.are_4_markers_detected(data[-1][0])
         print("Patch detected: " + str(patch_detected))
 
-        cur_frame = reader.frame
         sample = {'img1': data[-1][0], 'img2': cur_frame}
         h, w, _ = cur_frame.shape
         intrinsicLayer = make_intrinsics_layer(w, h, focalx, focaly, centerx, centery)
