@@ -115,7 +115,7 @@ time.sleep(1)
 # take off
 tello.takeoff()
 time.sleep(5)
-tello.go_xyz_speed_mid(x=0, y=0, z=150, speed=20, mid=1)
+tello.go_xyz_speed_mid(x=0, y=0, z=170, speed=20, mid=1)
 time.sleep(10)
 
 tello.disable_mission_pads()
@@ -131,9 +131,13 @@ SE_motive = curr_state[-1]  # in Y UP system
 initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
 initial_x_before, initial_y_before = -initial_x, -initial_y
 
+target_translation = 600
+
 
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
-target_pos = np.asarray([initial_x_before + 250, initial_opti_y, initial_z, 0, 0, 0]) #TODO replace 0,0,0 with actual angles next
+target_pos = np.asarray([initial_x_before + target_translation, initial_opti_y, initial_z, 0, 0, 0])
+#TODO replace 0,0,0 with actual angles next
+#TODO align to the initial rotation and not to (0,0,0)
 
 SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
 
@@ -201,6 +205,7 @@ write_idx = 0
 planned = list()
 
 
+#TODO add writing of planned, VO, add statistics
 def writer_thread():
     global data, write_idx, planned
     with open(labels_filename, 'w') as labels_file, \
@@ -251,6 +256,10 @@ def recorder_thread(reader):
         x, z, y = opti_state[2][0:3, 3] * m_to_cm
         cur_pose = (-x, -y, z)
 
+        SE_motiv = opti_state[-1]  # in Y UP system
+        SE_telo_NED = np.array(SE_motive2telloNED(SE_motiv, T_w_b0_inv))
+
+
         if cur_pose[1] - target_pos[1] != 0:
             tan_alfa = delta_lookahead / abs(cur_pose[1] - target_pos[1])
 
@@ -295,7 +304,7 @@ def recorder_thread(reader):
         # data.append([reader.frame, (state['x'], state['y'], state['z'],
         #                            state["pitch"], state["roll"],
         #                            state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
-        data.append([cur_fram, SE_tello_NED, VO_motions,
+        data.append([cur_fram, SE_telo_NED, VO_motions,
                     [x_move, y_move, 0],
                     np.array([cur_pose[0], cur_pose[1], cur_pose[2], ptch, rol, yw])])
 
