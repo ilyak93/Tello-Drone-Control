@@ -23,7 +23,7 @@ dt_cmd = 3.
 cam_calib_fname = 'tello_960_720_calib_djitellopy.p'
 initial_opti_y = np.load("initial_y_translation_axis.npy") * m_to_cm
 initial_rotation_view = np.load("initial_rotation_view.npy")
-delta_lookahead = 50
+delta_lookahead = 100
 
 np.random.seed(SEED)
 render_dir = os.path.join(BASE_RENDER_DIR, str(SEED))
@@ -218,10 +218,9 @@ def recorder_thread(reader):
     while True:
         ready.set()
         response.wait()
-        cur_pose = data[-1][-1] * m_to_cm
-        print("dist from target " + str(math.sqrt(sum((cur_pose[:2] - target_pos[:2]) ** 2))))
-        if math.sqrt(sum((cur_pose[:2] - target_pos[:2]) ** 2)) <= target_radius:
-            break
+
+        _, _, _, _, _, prev_yaw = data[-1][-1]
+
         opti_state = telloState(streamingClient)
         SE_motive = opti_state[-1]
         SE_tello_NED = SE_motive2telloNED(SE_motive, T_w_b0_inv)
@@ -231,16 +230,21 @@ def recorder_thread(reader):
         euler = euler / np.pi * 180.
         (roll, pitch, yaw) = np.flip(euler)
 
-        x, z, y = opti_state[2][0:3, 3]
+        x, z, y = opti_state[2][0:3, 3] * m_to_cm
+
+        cur_pose = (-x, -y, z)
 
         if cur_pose[1] - target_pos[1] != 0:
-            tan_alpha = delta_lookahead / abs(initial_y - target_pos[1])
+            tan_alpha = delta_lookahead / abs(cur_pose[1] - target_pos[1])
 
         alpha_rad = math.atan(tan_alpha)
         alpha_deg = 90 - round(alpha_rad * 180. / math.pi)
-        alpha_deg = alpha_deg if initial_y - target_pos[1] < 0 else -alpha_deg
+        alpha_deg = alpha_deg if cur_pose[1] - target_pos[1] < 0 else -alpha_deg
 
-        tello.rotate_clockwise(alpha_deg)
+        cur_rotoation = alpha_deg - int(round(prev_yaw))
+        print("cur angle and prev angle are:" + str(alpha_deg, prev_yaw))
+
+        tello.rotate_clockwise(cur_rotoation)
         time.sleep(3)
 
         patch_detected = ad.are_4_markers_detected(data[-1][0])
@@ -259,11 +263,15 @@ def recorder_thread(reader):
         #                            state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
         data.append([cur_frame, SE_tello_NED, VO_motions,
                     [x_move, y_move, 0],
-                    np.array([-x, -y, z, pitch, roll, yaw])])
+                    np.array([cur_pose[0], cur_pose[1], cur_pose[2], pitch, roll, yaw])])
 
         print("current pos is " + str(cur_pose))
         ready.set()
         response.clear()
+
+        print("dist from target " + str(math.sqrt(sum((cur_pose[:2] - target_pos[:2]) ** 2))))
+        if math.sqrt(sum((cur_pose[:2] - target_pos[:2]) ** 2)) <= target_radius:
+            break
 
 
 # start recorder and writer threads
@@ -285,7 +293,7 @@ while True:
     (cur_x, cur_y, cur_z) = data[-1][-1][:3] * m_to_cm
     cur_poz = (cur_x, cur_y, cur_z)
     x_move, y_move = R, 0
-    if cur_y - target_pos[1] != 0:
+    '''if cur_y - target_pos[1] != 0:
         tan_alpha = delta_lookahead / abs(cur_y - target_pos[1])
         # (tan_alpha+1)*y**2 = R**2 --> y = math.sqrt(R**2 / (tan_alpha+1))
         y_move_abs = math.sqrt(R ** 2 / (tan_alpha + 1))
@@ -296,7 +304,7 @@ while True:
             if abs(x_move) > abs(y_move):
                 x_move = math.copysign(20.0, x_move)
             else:
-                y_move = math.copysign(20.0, y_move)
+                y_move = math.copysign(20.0, y_move)'''
 
     # end = time.time()
     # print("time is" + str(end - start))
