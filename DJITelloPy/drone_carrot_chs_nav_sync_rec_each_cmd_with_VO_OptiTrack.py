@@ -177,12 +177,16 @@ euler = euler / np.pi * 180.
 initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
 initial_x, initial_y = -initial_x, -initial_y
 
+cur_p = initial_x, initial_y, initial_z
+
 print("initial x,y,z,pitch,roll,yaw after rotate are + " + str([initial_x,
                                                                 initial_y,
                                                                 initial_z,
                                                                 pitch,
                                                                 roll,
                                                                 yaw]))
+
+print("dist from target " + str(math.sqrt(sum((cur_p[:2] - target_pos[:2]) ** 2))))
 
 
 data.append([cur_frame, SE_tello_NED, SE_patch_NED,
@@ -296,29 +300,42 @@ def recorder_thread(reader):
                     np.array([cur_pose[0], cur_pose[1], cur_pose[2], ptch, rol, yw])])
 
         print("current pos is " + str(cur_pose))
-        ready.set()
-        response.clear()
 
         print("dist from target " + str(math.sqrt(sum((cur_pose[:2] - target_pos[:2]) ** 2))))
         if math.sqrt(sum((cur_pose[:2] - target_pos[:2]) ** 2)) <= target_radius:
+            ready.set()
             break
+
+        response.clear()
+        ready.set()
+
+
+
 
 
 # start recorder and writer threads
+
+
 
 recorder = threading.Thread(target=recorder_thread, args=([reader]))
 recorder.start()
 
 # calculate carrot chasing moves and send to execution
 # get first frame and its xyz label
+ready.wait()
 
 while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
     # print("loc = " + str(executed[-1]))
-
-    (cur_x, cur_y, cur_z) = data[-1][-1][:3] * m_to_cm
+    (cur_x, cur_y, cur_z) = data[-1][-1][:3]
     cur_poz = (cur_x, cur_y, cur_z)
+
+    if math.sqrt(sum((cur_poz[:2] - target_pos[:2]) ** 2)) <= target_radius:
+        response.set()
+        break
+
+
     x_move, y_move = R, 0
     '''if cur_y - target_pos[1] != 0:
         tan_alpha = delta_lookahead / abs(cur_y - target_pos[1])
@@ -337,15 +354,13 @@ while True:
     # print("time is" + str(end - start))
     planned.append((round(x_move), round(y_move), 0))
 
-    ready.wait()
-    if math.sqrt(sum((cur_poz[:2] - target_pos[:2]) ** 2)) <= target_radius:
-        response.set()
-        break
     tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
     time.sleep(3)
     ready.clear()
     response.set()
     ready.wait()
+
+
 
 tello.land()
 tello.end()
