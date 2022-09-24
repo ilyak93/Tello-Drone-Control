@@ -3,7 +3,7 @@ import numpy as np
 
 from tello_with_optitrack.position import connectOptitrack, telloState, calc_initial_SE_motive2telloNED_inv
 
-body_id_drone1 = 328  # Drone's ID in Motive
+body_id_drone1 = 322  # Drone's ID in Motive
 body_id_patch = 308  # Patch's ID in Motive
 
 # connect to Opti-Track
@@ -16,7 +16,10 @@ if not streamingClient:
 
 opti_state = telloState(streamingClient)
 SE_motive = opti_state[-1]
+x, z, y = SE_motive[0:3, 3]
 initial_rotation_view = calc_initial_SE_motive2telloNED_inv(SE_motive)
 
 np.save("initial_rotation_view.npy", initial_rotation_view)
+np.save("initial_y_translation_axis.npy", -y)
+
 
