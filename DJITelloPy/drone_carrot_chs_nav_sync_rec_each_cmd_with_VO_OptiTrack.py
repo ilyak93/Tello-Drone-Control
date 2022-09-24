@@ -242,7 +242,7 @@ def recorder_thread(reader):
         alpha_deg = alpha_deg if cur_pose[1] - target_pos[1] < 0 else -alpha_deg
 
         cur_rotoation = alpha_deg - int(round(prev_yaw))
-        print("cur angle and prev angle are:" + str(alpha_deg, prev_yaw))
+        print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
 
         tello.rotate_clockwise(cur_rotoation)
         time.sleep(3)
