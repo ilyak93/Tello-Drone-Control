@@ -9,17 +9,21 @@ import numpy as np
 import os
 import csv
 import cv2
-
+from scipy.spatial.transform import Rotation as Rot
 from TartanVO.Datasets.utils import Compose, CropCenter, DownscaleFlow, ToTensor, make_intrinsics_layer
 from TartanVO.TartanVO import TartanVO
 from tello_with_optitrack.aruco_detect import ArucoDetector
 from tello_with_optitrack.position import connectOptitrack, telloState, calc_initial_SE_motive2telloNED_inv, \
     SE_motive2telloNED, patchState
 
+m_to_cm = 100
 SEED = 54
 BASE_RENDER_DIR = '/home/vista/ilya_tello_test/OL_trajs_images/'
 dt_cmd = 3.
 cam_calib_fname = 'tello_960_720_calib_djitellopy.p'
+initial_opti_y = np.load("initial_y_translation_axis.npy") * m_to_cm
+initial_rotation_view = np.load("initial_rotation_view.npy")
+delta_lookahead = 50
 
 np.random.seed(SEED)
 render_dir = os.path.join(BASE_RENDER_DIR, str(SEED))
@@ -30,9 +34,7 @@ if not os.path.exists(render_dir):
 labels_filename = os.path.join(render_dir, 'pose_file.csv')  # For pose in VO frame
 patch_pose_VO_filename = os.path.join(render_dir, 'patch_pose_VO.csv')
 
-# TODO: add rotations to carrot chasing and correct recording accordingly
-
-# TODO: make carrot chasing relative to chosen y and z of the target
+# TODO: make carrot chasing relative to chosen z of the target
 
 # TODO: add carrot chasing with z-axis
 
@@ -49,7 +51,6 @@ focalx, focaly, centerx, centery = 785.75708966, 781.95811828, 494.5589324, 319.
 class Unsqueeze(object):
     """
     Scale the flow and mask to a fixed size
-
     """
 
     def __init__(self, axis=0):
@@ -84,7 +85,7 @@ initial_rotation_view = np.load("initial_rotation_view.npy")
 # res['motion'] = groundTruth
 
 # connect, enable missions pads detection and show battery
-body_id_drone1 = 328  # Drone's ID in Motive
+body_id_drone1 = 322  # Drone's ID in Motive
 body_id_patch = 308  # Patch's ID in Motive
 
 # connect to Opti-Track
@@ -112,9 +113,9 @@ tello.streamon()
 time.sleep(1)
 # take off
 tello.takeoff()
-time.sleep(3)
-tello.go_xyz_speed_mid(x=0, y=0, z=150, speed=20, mid=1)
 time.sleep(5)
+tello.go_xyz_speed_mid(x=0, y=0, z=150, speed=20, mid=1)
+time.sleep(10)
 
 tello.disable_mission_pads()
 time.sleep(0.1)
@@ -123,7 +124,9 @@ data = list()
 
 reader = tello.get_frame_read()
 
-cur_frame = reader.frame
+
+
+
 curr_state = telloState(streamingClient)
 patch_state = patchState(streamingClient)
 
@@ -131,20 +134,34 @@ SE_motive = curr_state[-1]  # in Y UP system
 patch_SE_motive = patch_state[-1]  # in Y UP system
 T_w_b0_inv = calc_initial_SE_motive2telloNED_inv(SE_motive)
 SE_tello_NED = np.array(SE_motive2telloNED(SE_motive, T_w_b0_inv))
-# labels_writer.writerow(list(SE_tello_NED[0]) + list(SE_tello_NED[1]) + list(SE_tello_NED[2]))
 SE_patch_NED = SE_motive2telloNED(patch_SE_motive, T_w_b0_inv)
-# patch_pose_VO_writer.writerow(list(SE_patch_NED[0]) + list(SE_patch_NED[1]) + list(SE_patch_NED[2]))
-# patch_pose_VO_file.close()
 
-data.append([cur_frame, SE_tello_NED, SE_patch_NED])
+SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
+euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degrees=False)
+euler = euler / np.pi * 180.
+(roll, pitch, yaw) = np.flip(euler)
+initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
+initial_x, initial_y = -initial_x, -initial_y
 
-m_to_cm = 100
+# (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
+target_pos = np.asarray([initial_x + 250, initial_opti_y, initial_z,
+                         initial_rotation_view[0], initial_rotation_view[1],
+                         initial_rotation_view[2]])
 
-target_translation_from_initial = (250, 0, 0)  # in meters
 
-target_pos = data[-1][1][0:3, 3] + target_translation_from_initial
+if initial_y - target_pos[1] != 0:
+    tan_alpha = delta_lookahead / abs(initial_y - target_pos[1])
 
-initial_pos = data[-1][1][0:3, 3]
+alpha_rad = math.atan(tan_alpha)
+alpha_deg = 90 - round(alpha_rad * 180. / math.pi)
+alpha_deg = alpha_deg if initial_y - target_pos[1] < 0 else -alpha_deg
+
+tello.rotate_clockwise(alpha_deg)
+time.sleep(3)
+
+cur_frame = reader.frame
+data.append([cur_frame, SE_tello_NED, SE_patch_NED,
+             np.array([initial_x, initial_y, initial_z, pitch, roll, yaw])])
 
 print("target_pos pose " + str(target_pos))
 
@@ -201,18 +218,33 @@ def recorder_thread(reader):
     while True:
         ready.set()
         response.wait()
-        cur_pose = data[-1][1][0:3, 3] * m_to_cm
+        cur_pose = data[-1][-1] * m_to_cm
         print("dist from target " + str(math.sqrt(sum((cur_pose[:2] - target_pos[:2]) ** 2))))
         if math.sqrt(sum((cur_pose[:2] - target_pos[:2]) ** 2)) <= target_radius:
             break
         opti_state = telloState(streamingClient)
         SE_motive = opti_state[-1]
         SE_tello_NED = SE_motive2telloNED(SE_motive, T_w_b0_inv)
-        # euler = R.from_matrix(SE_tello_NED[0:3, 0:3]).as_euler('zyx', degrees=False)
-        # euler = euler / np.pi * 180.
-        # (pitch, roll, yaw) = np.flip(euler)
 
-        # x, z, y = opti_state[2][0:3, 3]
+        SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
+        euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degrees=False)
+        euler = euler / np.pi * 180.
+        (roll, pitch, yaw) = np.flip(euler)
+
+        x, z, y = opti_state[2][0:3, 3]
+
+        if cur_pose[1] - target_pos[1] != 0:
+            tan_alpha = delta_lookahead / abs(initial_y - target_pos[1])
+
+        alpha_rad = math.atan(tan_alpha)
+        alpha_deg = 90 - round(alpha_rad * 180. / math.pi)
+        alpha_deg = alpha_deg if initial_y - target_pos[1] < 0 else -alpha_deg
+
+        tello.rotate_clockwise(alpha_deg)
+        time.sleep(3)
+
+        patch_detected = ad.are_4_markers_detected(data[-1][0])
+        print("Patch detected: " + str(patch_detected))
 
         cur_frame = reader.frame
         sample = {'img1': data[-1][0], 'img2': cur_frame}
@@ -226,7 +258,8 @@ def recorder_thread(reader):
         #                            state["pitch"], state["roll"],
         #                            state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
         data.append([cur_frame, SE_tello_NED, VO_motions,
-                     [x_move, y_move, 0]])
+                    [x_move, y_move, 0],
+                    np.array([-x, -y, z, pitch, roll, yaw])])
 
         print("current pos is " + str(cur_pose))
         ready.set()
@@ -248,11 +281,12 @@ while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
     # print("loc = " + str(executed[-1]))
-    (cur_x, cur_y, cur_z) = data[-1][1][0:3, 3] * m_to_cm
+    print(data[-1][-1])
+    (cur_x, cur_y, cur_z) = data[-1][-1][:3] * m_to_cm
     cur_poz = (cur_x, cur_y, cur_z)
     x_move, y_move = R, 0
-    if cur_y != 0:
-        tan_alpha = delta_lookahead / abs(cur_y)
+    if cur_y - target_pos[1] != 0:
+        tan_alpha = delta_lookahead / abs(cur_y - target_pos[1])
         # (tan_alpha+1)*y**2 = R**2 --> y = math.sqrt(R**2 / (tan_alpha+1))
         y_move_abs = math.sqrt(R ** 2 / (tan_alpha + 1))
         y_move = float(y_move_abs) if cur_y > 0 else float(-y_move_abs)
@@ -277,8 +311,6 @@ while True:
     ready.clear()
     response.set()
     ready.wait()
-    patch_detected = ad.are_4_markers_detected(data[-1][0])
-    print("Patch detected: " + str(patch_detected))
 
 tello.land()
 tello.end()
@@ -292,4 +324,3 @@ writer.join()
 # carrot chasing should sleep_wait until gets a signal from recorder
 # that it recorded the last True executed command
 # recorder should sleep_wait while command yet sent to tello drone
-
