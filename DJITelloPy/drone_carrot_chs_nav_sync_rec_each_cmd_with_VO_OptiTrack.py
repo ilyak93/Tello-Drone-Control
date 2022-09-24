@@ -24,6 +24,7 @@ cam_calib_fname = 'tello_960_720_calib_djitellopy.p'
 initial_opti_y = np.load("initial_y_translation_axis.npy") * m_to_cm
 initial_rotation_view = np.load("initial_rotation_view.npy")
 delta_lookahead = 100
+R = 25
 
 np.random.seed(SEED)
 render_dir = os.path.join(BASE_RENDER_DIR, str(SEED))
@@ -124,51 +125,64 @@ data = list()
 
 reader = tello.get_frame_read()
 
+curr_state = telloState(streamingClient)
+SE_motive = curr_state[-1]  # in Y UP system
+
+initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
+initial_x_before, initial_y_before = -initial_x, -initial_y
 
 
+# (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
+target_pos = np.asarray([initial_x_before + 250, initial_opti_y, initial_z, 0, 0, 0]) #TODO replace 0,0,0 with actual angles next
 
+SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
+
+euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degrees=False)
+euler = euler / np.pi * 180.
+(pitch, roll, yaw) = np.flip(euler)
+prev_yaw = yaw
+
+print("opti y-axis for carrot chasing is " + str(initial_opti_y))
+print("initial x,y,z,pitch,roll,yaw are + " + str([initial_x_before, initial_y_before, initial_z, pitch, roll, yaw]))
+
+if initial_y - target_pos[1] != 0:
+    tan_alpha = delta_lookahead / abs(initial_y_before - target_pos[1])
+
+    alpha_rad = math.atan(tan_alpha)
+    alpha_deg = 90 - round(alpha_rad * 180. / math.pi)
+    alpha_deg = alpha_deg if initial_y_before - target_pos[1] < 0 else -alpha_deg
+
+    cur_rotoation = alpha_deg - int(round(prev_yaw))
+    print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
+
+    tello.rotate_clockwise(cur_rotoation)
+    time.sleep(3)
+
+
+cur_frame = reader.frame
 curr_state = telloState(streamingClient)
 patch_state = patchState(streamingClient)
 
 SE_motive = curr_state[-1]  # in Y UP system
 patch_SE_motive = patch_state[-1]  # in Y UP system
+
 T_w_b0_inv = calc_initial_SE_motive2telloNED_inv(SE_motive)
 SE_tello_NED = np.array(SE_motive2telloNED(SE_motive, T_w_b0_inv))
 SE_patch_NED = SE_motive2telloNED(patch_SE_motive, T_w_b0_inv)
-
 SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
+
 euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degrees=False)
 euler = euler / np.pi * 180.
 (roll, pitch, yaw) = np.flip(euler)
 initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
 initial_x, initial_y = -initial_x, -initial_y
 
-# (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
-target_pos = np.asarray([initial_x + 250, initial_opti_y, initial_z,
-                         initial_rotation_view[0], initial_rotation_view[1],
-                         initial_rotation_view[2]])
-
-
-if initial_y - target_pos[1] != 0:
-    tan_alpha = delta_lookahead / abs(initial_y - target_pos[1])
-
-    alpha_rad = math.atan(tan_alpha)
-    alpha_deg = 90 - round(alpha_rad * 180. / math.pi)
-    alpha_deg = alpha_deg if initial_y - target_pos[1] < 0 else -alpha_deg
-    
-    tello.rotate_clockwise(alpha_deg)
-    time.sleep(3)
-
-#TODO: finish this also for recorder
-cur_frame = reader.frame
-curr_state = telloState(streamingClient)
-SE_motive = curr_state[-1]  # in Y UP system
-SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
-euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degrees=False)
-euler = euler / np.pi * 180.
-(roll, pitch, yaw) = np.flip(euler)
-initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
-initial_x, initial_y = -initial_x, -initial_y
+print("initial x,y,z,pitch,roll,yaw after rotate are + " + str([initial_x,
+                                                                initial_y,
+                                                                initial_z,
+                                                                pitch,
+                                                                roll,
+                                                                yaw]))
 
 
 data.append([cur_frame, SE_tello_NED, SE_patch_NED,
@@ -181,8 +195,6 @@ print("Patch detected: " + str(patch_detected))
 
 write_idx = 0
 planned = list()
-# reponse is True as the last command of taking off with alignment using go mid finished
-response = True
 
 
 def writer_thread():
@@ -230,47 +242,47 @@ def recorder_thread(reader):
         ready.set()
         response.wait()
 
-        _, _, _, _, _, prev_yaw = data[-1][-1]
-
+        _, _, _, _, _, prev_yw = data[-1][-1]
         opti_state = telloState(streamingClient)
-        SE_motive = opti_state[-1]
-        SE_tello_NED = SE_motive2telloNED(SE_motive, T_w_b0_inv)
+        x, z, y = opti_state[2][0:3, 3] * m_to_cm
+        cur_pose = (-x, -y, z)
 
-        SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
-        euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degrees=False)
-        euler = euler / np.pi * 180.
-        (roll, pitch, yaw) = np.flip(euler)
+        if cur_pose[1] - target_pos[1] != 0:
+            tan_alfa = delta_lookahead / abs(cur_pose[1] - target_pos[1])
+
+            alfa_rad = math.atan(tan_alfa)
+            alfa_deg = 90 - round(alfa_rad * 180. / math.pi)
+            alfa_deg = alfa_deg if cur_pose[1] - target_pos[1] < 0 else -alfa_deg
+
+            cur_rotation = alfa_deg - int(round(prev_yw))
+            print("cur angle and prev angle are:" + str([alfa_deg, int(round(prev_yw))]))
+
+            tello.rotate_clockwise(cur_rotation)
+            time.sleep(3)
+
+        cur_fram = reader.frame
+        curr_stat = telloState(streamingClient)
+        SE_motiv = curr_stat[-1]  # in Y UP system
+        SE_tello_NED_to_navigat = SE_motive2telloNED(SE_motiv, initial_rotation_view)
+        eulr = Rot.from_matrix(SE_tello_NED_to_navigat[0:3, 0:3]).as_euler('zyx', degrees=False)
+        eulr = eulr / np.pi * 180.
+        (rol, ptch, yw) = np.flip(eulr)
 
         x, z, y = opti_state[2][0:3, 3] * m_to_cm
 
         cur_pose = (-x, -y, z)
 
-        if cur_pose[1] - target_pos[1] != 0:
-            tan_alpha = delta_lookahead / abs(cur_pose[1] - target_pos[1])
+        print("x,y,z,pitch,roll,yaw after rotate are + " + str([cur_pose[0],
+                                                                cur_pose[1],
+                                                                cur_pose[2],
+                                                                ptch, rol,
+                                                                yw]))
 
-            alpha_rad = math.atan(tan_alpha)
-            alpha_deg = 90 - round(alpha_rad * 180. / math.pi)
-            alpha_deg = alpha_deg if cur_pose[1] - target_pos[1] < 0 else -alpha_deg
-    
-            cur_rotoation = alpha_deg - int(round(prev_yaw))
-            print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
-    
-            tello.rotate_clockwise(cur_rotoation)
-            time.sleep(3)
+        patch_detectd = ad.are_4_markers_detected(data[-1][0])
+        print("Patch detected: " + str(patch_detectd))
 
-        cur_frame = reader.frame
-        '''curr_state = telloState(streamingClient)
-        SE_motive = curr_state[-1]  # in Y UP system
-        SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
-        euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degrees=False)
-        euler = euler / np.pi * 180.
-        (roll, pitch, yaw) = np.flip(euler)'''
-
-        patch_detected = ad.are_4_markers_detected(data[-1][0])
-        print("Patch detected: " + str(patch_detected))
-
-        sample = {'img1': data[-1][0], 'img2': cur_frame}
-        h, w, _ = cur_frame.shape
+        sample = {'img1': data[-1][0], 'img2': cur_fram}
+        h, w, _ = cur_fram.shape
         intrinsicLayer = make_intrinsics_layer(w, h, focalx, focaly, centerx, centery)
         sample['intrinsic'] = intrinsicLayer
         sample = transform(sample)
@@ -279,9 +291,9 @@ def recorder_thread(reader):
         # data.append([reader.frame, (state['x'], state['y'], state['z'],
         #                            state["pitch"], state["roll"],
         #                            state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
-        data.append([cur_frame, SE_tello_NED, VO_motions,
+        data.append([cur_fram, SE_tello_NED, VO_motions,
                     [x_move, y_move, 0],
-                    np.array([cur_pose[0], cur_pose[1], cur_pose[2], pitch, roll, yaw])])
+                    np.array([cur_pose[0], cur_pose[1], cur_pose[2], ptch, rol, yw])])
 
         print("current pos is " + str(cur_pose))
         ready.set()
@@ -297,9 +309,6 @@ def recorder_thread(reader):
 recorder = threading.Thread(target=recorder_thread, args=([reader]))
 recorder.start()
 
-distance_btw_pads = 50
-R = 25
-delta_lookahead = 50
 # calculate carrot chasing moves and send to execution
 # get first frame and its xyz label
 
@@ -307,7 +316,7 @@ while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
     # print("loc = " + str(executed[-1]))
-    print(data[-1][-1])
+
     (cur_x, cur_y, cur_z) = data[-1][-1][:3] * m_to_cm
     cur_poz = (cur_x, cur_y, cur_z)
     x_move, y_move = R, 0
