@@ -115,8 +115,8 @@ time.sleep(1)
 # take off
 tello.takeoff()
 time.sleep(5)
-tello.go_xyz_speed_mid(x=0, y=0, z=170, speed=20, mid=1)
-time.sleep(10)
+tello.go_xyz_speed_mid(x=0, y=0, z=180, speed=50, mid=1)
+time.sleep(5)
 
 tello.disable_mission_pads()
 time.sleep(0.1)
@@ -363,7 +363,7 @@ while True:
     # print("time is" + str(end - start))
     planned.append((round(x_move), round(y_move), 0))
 
-    tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
+    tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=50)
     time.sleep(3)
     ready.clear()
     response.set()
