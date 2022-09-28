@@ -314,6 +314,11 @@ while True:
     # print("loc = " + str(executed[-1]))
     (cur_x, cur_y, cur_z) = data[-1][1][0:3, 3] * m_to_cm
     cur_poz = (cur_x, cur_y, cur_z)
+    
+    if math.sqrt(sum((cur_poz[:2] - target_pos[:2]) ** 2)) <= target_radius:
+        response.set()
+        break
+    
     if not first and cur_y - target_pos[1] != 0:
         _, _, _, _, _, prev_yw = data[-1][-1]
         tan_alfa = delta_lookahead / abs(cur_y)
@@ -334,9 +339,7 @@ while True:
         tello.rotate_clockwise(cur_rotation)
         time.sleep(3)
 
-    if math.sqrt(sum((cur_poz[:2] - target_pos[:2]) ** 2)) <= target_radius:
-        response.set()
-        break
+    
     tello.go_xyz_speed(x=R, y=0, z=0, speed=50)
     time.sleep(3)
     ready.clear()
