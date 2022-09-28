@@ -252,13 +252,10 @@ def recorder_thread(reader):
         ready.set()
         response.wait()
         cur_pose = data[-1][1][0:3, 3] * m_to_cm
-        print("dist from target " + str(math.sqrt(sum((cur_pose[:2] - target_pos[:2]) ** 2))))
-        if math.sqrt(sum((cur_pose[:2] - target_pos[:2]) ** 2)) <= target_radius:
-            break
         opti_state = telloState(streamingClient)
         SE_motiv = opti_state[-1]
         SE_telo_NED = SE_motive2telloNED(SE_motiv, T_w_b0_inv)
-        
+
         SE_tello_NED_to_navigat = SE_motive2telloNED(SE_motiv, initial_rotation_view)
         eulr = Rot.from_matrix(SE_tello_NED_to_navigat[0:3, 0:3]).as_euler('zyx', degrees=False)
         eulr = eulr / np.pi * 180.
@@ -290,7 +287,8 @@ def recorder_thread(reader):
         #                            state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
         data.append([cur_fram, SE_telo_NED, VO_motions,
                      [x_move, y_move, 0],
-                     np.array([cur_pose[0], cur_pose[1], cur_pose[2], ptch, rol, yw])])
+                     np.array([cur_pose[0], cur_pose[1], cur_pose[2],
+                               ptch, rol, yw])])
 
         print("current pos is " + str(cur_pose))
 
@@ -347,7 +345,7 @@ while True:
 
     tello.rotate_clockwise(cur_rotation)
     time.sleep(3)
-   
+
     if math.sqrt(sum((cur_poz[:2] - target_pos[:2]) ** 2)) <= target_radius:
         response.set()
         break
