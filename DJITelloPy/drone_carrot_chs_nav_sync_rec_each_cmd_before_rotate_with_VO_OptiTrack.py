@@ -251,7 +251,7 @@ def recorder_thread(reader):
     while True:
         ready.set()
         response.wait()
-        cur_pose = data[-1][1][0:3, 3] * m_to_cm
+
         opti_state = telloState(streamingClient)
         SE_motiv = opti_state[-1]
         SE_telo_NED = SE_motive2telloNED(SE_motiv, T_w_b0_inv)
@@ -309,6 +309,8 @@ recorder.start()
 # calculate carrot chasing moves and send to execution
 # get first frame and its xyz label
 
+first = True
+
 while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
@@ -316,7 +318,7 @@ while True:
     (cur_x, cur_y, cur_z) = data[-1][1][0:3, 3] * m_to_cm
     cur_poz = (cur_x, cur_y, cur_z)
     x_move, y_move = R, 0
-    if cur_y - target_pos[1] != 0:
+    if not first and cur_y - target_pos[1] != 0:
         _, _, _, _, _, prev_yw = data[-1][-1]
         tan_alfa = delta_lookahead / abs(cur_y)
         # (tan_alpha+1)*y**2 = R**2 --> y = math.sqrt(R**2 / (tan_alpha+1))
@@ -342,9 +344,9 @@ while True:
     planned.append((round(x_move), round(y_move), 0))
 
     ready.wait()
-
-    tello.rotate_clockwise(cur_rotation)
-    time.sleep(3)
+    if not first:
+        tello.rotate_clockwise(cur_rotation)
+        time.sleep(3)
 
     if math.sqrt(sum((cur_poz[:2] - target_pos[:2]) ** 2)) <= target_radius:
         response.set()
@@ -354,6 +356,7 @@ while True:
     ready.clear()
     response.set()
     ready.wait()
+    first = False
     patch_detected = ad.are_4_markers_detected(data[-1][0])
     print("Patch detected: " + str(patch_detected))
 
