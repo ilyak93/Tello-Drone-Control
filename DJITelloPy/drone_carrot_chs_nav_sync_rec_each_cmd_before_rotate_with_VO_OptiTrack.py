@@ -131,7 +131,7 @@ SE_motive = curr_state[-1]  # in Y UP system
 initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
 initial_x_before, initial_y_before = -initial_x, -initial_y
 
-target_translation = 300 #target
+target_translation = 300  # target
 
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
 target_pos = np.asarray([initial_x_before + target_translation, initial_opti_y, initial_z, 0, 0, 0])
@@ -161,7 +161,7 @@ if initial_y - target_pos[1] != 0:
     tello.rotate_clockwise(cur_rotoation)
     time.sleep(3)
 
-alfa_deg = alpha_deg #TODO: correct later
+alfa_deg = alpha_deg  # TODO: correct later
 cur_frame = reader.frame
 curr_state = telloState(streamingClient)
 patch_state = patchState(streamingClient)
@@ -262,11 +262,11 @@ def recorder_thread(reader):
 
         cur_pose = (-x, -y, z)
 
-        print("x,y,z,pitch,roll,yaw after rotate are + " + str([cur_pose[0],
-                                                                cur_pose[1],
-                                                                cur_pose[2],
-                                                                ptch, rol,
-                                                                yw]))
+        print("x,y,z,pitch,roll,yaw after movement are + " + str([cur_pose[0],
+                                                                  cur_pose[1],
+                                                                  cur_pose[2],
+                                                                  ptch, rol,
+                                                                  yw]))
 
         patch_detectd = ad.are_4_markers_detected(data[-1][0])
         print("Patch detected: " + str(patch_detectd))
@@ -283,7 +283,7 @@ def recorder_thread(reader):
         #                            state["pitch"], state["roll"],
         #                            state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
         data.append([cur_fram, SE_telo_NED, VO_motions,
-                     [90],  #TODO: 90 or [R,0]  should be recalculated and correctly written
+                     [90],  # TODO: 90 or [R,0]  should be recalculated and correctly written
                      np.array([cur_pose[0], cur_pose[1], cur_pose[2],
                                ptch, rol, yw])])
 
@@ -314,14 +314,14 @@ while True:
     # print("loc = " + str(executed[-1]))
     (cur_x, cur_y, cur_z) = data[-1][1][0:3, 3] * m_to_cm
     cur_poz = (cur_x, cur_y, cur_z)
-    
+
     if math.sqrt(sum((cur_poz[:2] - target_pos[:2]) ** 2)) <= target_radius:
         response.set()
         break
-    
+
     if not first and cur_y - target_pos[1] != 0:
         _, _, _, _, _, prev_yw = data[-1][-1]
-        tan_alfa = delta_lookahead / abs(cur_y)
+        tan_alfa = delta_lookahead / abs(cur_y - target_pos[1])
 
         alfa_rad = math.atan(tan_alfa)
         alfa_deg = 90 - round(alfa_rad * 180. / math.pi)
@@ -339,7 +339,6 @@ while True:
         tello.rotate_clockwise(cur_rotation)
         time.sleep(3)
 
-    
     tello.go_xyz_speed(x=R, y=0, z=0, speed=50)
     time.sleep(3)
     ready.clear()
