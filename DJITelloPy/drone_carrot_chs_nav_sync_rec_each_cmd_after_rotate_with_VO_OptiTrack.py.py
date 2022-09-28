@@ -235,9 +235,6 @@ def writer_thread():
         #                                   planned[write_idx][2]))
 
 
-# last is False as last recording which is the first in this case have not done yet
-last = False
-
 response = threading.Event()
 ready = threading.Event()
 
