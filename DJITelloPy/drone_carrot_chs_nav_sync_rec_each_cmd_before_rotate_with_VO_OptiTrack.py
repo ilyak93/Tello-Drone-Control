@@ -330,7 +330,7 @@ while True:
 
     # end = time.time()
     # print("time is" + str(end - start))
-    planned.append(round(alfa_deg)) #TODO x,y planned can be calculated and written for viz
+    planned.append(round(alfa_deg)) #TODO: x,y planned can be calculated and written for viz
 
     ready.wait()
     if not first:
