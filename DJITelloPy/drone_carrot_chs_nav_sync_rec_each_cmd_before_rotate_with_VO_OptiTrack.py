@@ -118,7 +118,6 @@ time.sleep(3)
 tello.go_xyz_speed_mid(x=0, y=0, z=180, speed=20, mid=1)
 time.sleep(5)
 
-
 tello.disable_mission_pads()
 time.sleep(0.1)
 
@@ -134,11 +133,10 @@ initial_x_before, initial_y_before = -initial_x, -initial_y
 
 target_translation = 600
 
-
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
 target_pos = np.asarray([initial_x_before + target_translation, initial_opti_y, initial_z, 0, 0, 0])
-#TODO replace 0,0,0 with actual angles next
-#TODO align to the initial rotation and not to (0,0,0)
+# TODO replace 0,0,0 with actual angles next
+# TODO align to the initial rotation and not to (0,0,0)
 
 SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
 
@@ -162,7 +160,6 @@ if initial_y - target_pos[1] != 0:
 
     tello.rotate_clockwise(cur_rotoation)
     time.sleep(3)
-
 
 cur_frame = reader.frame
 curr_state = telloState(streamingClient)
@@ -193,7 +190,6 @@ print("initial x,y,z,pitch,roll,yaw after rotate are + " + str([initial_x,
 
 print("dist from target " + str(math.sqrt(sum((cur_p[:2] - target_pos[:2]) ** 2))))
 
-
 data.append([cur_frame, SE_tello_NED, SE_patch_NED,
              np.array([initial_x, initial_y, initial_z, pitch, roll, yaw])])
 
@@ -206,7 +202,7 @@ write_idx = 0
 planned = list()
 
 
-#TODO add writing of planned, VO, add statistics
+# TODO add writing of planned, VO, add statistics
 def writer_thread():
     global data, write_idx, planned
     with open(labels_filename, 'w') as labels_file, \
@@ -286,7 +282,7 @@ def recorder_thread(reader):
         #                            state["pitch"], state["roll"],
         #                            state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
         data.append([cur_fram, SE_telo_NED, VO_motions,
-                     [x_move, y_move, 0],
+                     [R, 0, 0],  #TODO: R and 0 should be recalculated and correctly written
                      np.array([cur_pose[0], cur_pose[1], cur_pose[2],
                                ptch, rol, yw])])
 
@@ -330,7 +326,7 @@ while True:
 
     # end = time.time()
     # print("time is" + str(end - start))
-    planned.append(round(alfa_deg)) #TODO: x,y planned can be calculated and written for viz
+    planned.append(round(alfa_deg))  # TODO: x,y planned can be calculated and written for viz
 
     ready.wait()
     if not first:
@@ -361,3 +357,4 @@ writer.join()
 # carrot chasing should sleep_wait until gets a signal from recorder
 # that it recorded the last True executed command
 # recorder should sleep_wait while command yet sent to tello drone
+
