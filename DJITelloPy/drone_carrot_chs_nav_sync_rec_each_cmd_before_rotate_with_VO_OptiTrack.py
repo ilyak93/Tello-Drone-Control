@@ -317,20 +317,9 @@ while True:
     # print("loc = " + str(executed[-1]))
     (cur_x, cur_y, cur_z) = data[-1][1][0:3, 3] * m_to_cm
     cur_poz = (cur_x, cur_y, cur_z)
-    x_move, y_move = R, 0
     if not first and cur_y - target_pos[1] != 0:
         _, _, _, _, _, prev_yw = data[-1][-1]
         tan_alfa = delta_lookahead / abs(cur_y)
-        # (tan_alpha+1)*y**2 = R**2 --> y = math.sqrt(R**2 / (tan_alpha+1))
-        y_move_abs = math.sqrt(R ** 2 / (tan_alfa + 1))
-        y_move = float(y_move_abs) if cur_y > 0 else float(-y_move_abs)
-        x_move = math.sqrt(R ** 2 - y_move ** 2)
-        # print("xmove and ymove are: " + str(x_move) + ',' + str(y_move))
-        if abs(x_move) < 20.0 and abs(y_move) < 20.0:
-            if abs(x_move) > abs(y_move):
-                x_move = math.copysign(20.0, x_move)
-            else:
-                y_move = math.copysign(20.0, y_move)
 
         alfa_rad = math.atan(tan_alfa)
         alfa_deg = 90 - round(alfa_rad * 180. / math.pi)
@@ -341,7 +330,7 @@ while True:
 
     # end = time.time()
     # print("time is" + str(end - start))
-    planned.append((round(x_move), round(y_move), 0))
+    planned.append(round(alfa_deg)) #TODO x,y planned can be calculated and written for viz
 
     ready.wait()
     if not first:
@@ -351,7 +340,7 @@ while True:
     if math.sqrt(sum((cur_poz[:2] - target_pos[:2]) ** 2)) <= target_radius:
         response.set()
         break
-    tello.go_xyz_speed(x=round(x_move), y=round(y_move), z=0, speed=20)
+    tello.go_xyz_speed(x=R, y=0, z=0, speed=50)
     time.sleep(3)
     ready.clear()
     response.set()
