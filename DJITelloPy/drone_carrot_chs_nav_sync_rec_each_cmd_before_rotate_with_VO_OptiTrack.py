@@ -161,6 +161,7 @@ if initial_y - target_pos[1] != 0:
     tello.rotate_clockwise(cur_rotoation)
     time.sleep(3)
 
+alfa_deg = alpha_deg #TODO: correct later
 cur_frame = reader.frame
 curr_state = telloState(streamingClient)
 patch_state = patchState(streamingClient)
@@ -282,7 +283,7 @@ def recorder_thread(reader):
         #                            state["pitch"], state["roll"],
         #                            state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
         data.append([cur_fram, SE_telo_NED, VO_motions,
-                     [R, 0, 0],  #TODO: R and 0 should be recalculated and correctly written
+                     [90],  #TODO: 90 or [R,0]  should be recalculated and correctly written
                      np.array([cur_pose[0], cur_pose[1], cur_pose[2],
                                ptch, rol, yw])])
 
