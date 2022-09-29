@@ -131,7 +131,7 @@ SE_motive = curr_state[-1]  # in Y UP system
 initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
 initial_x_before, initial_y_before = -initial_x, -initial_y
 
-target_translation = 600
+target_translation = 500
 
 
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
@@ -303,7 +303,8 @@ def recorder_thread(reader):
         #                            state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
         data.append([cur_fram, SE_telo_NED, VO_motions,
                     [x_move, y_move, 0],
-                    np.array([cur_pose[0], cur_pose[1], cur_pose[2], ptch, rol, yw])])
+                    np.array([cur_pose[0], cur_pose[1], cur_pose[2],
+                              ptch, rol, yw])])
 
         print("current pos is " + str(cur_pose))
 
