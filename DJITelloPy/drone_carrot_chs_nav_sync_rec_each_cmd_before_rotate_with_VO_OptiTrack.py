@@ -131,7 +131,7 @@ SE_motive = curr_state[-1]  # in Y UP system
 initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
 initial_x_before, initial_y_before = -initial_x, -initial_y
 
-target_translation = 300  # target
+target_translation = 600  # target
 
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
 target_pos = np.asarray([initial_x_before + target_translation, initial_opti_y, initial_z, 0, 0, 0])
@@ -312,7 +312,7 @@ while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
     # print("loc = " + str(executed[-1]))
-    (cur_x, cur_y, cur_z) = data[-1][1][0:3, 3] * m_to_cm
+    (cur_x, cur_y, cur_z, _, _, prev_yw) = data[-1][-1]
     cur_poz = (cur_x, cur_y, cur_z)
 
     if math.sqrt(sum((cur_poz[:2] - target_pos[:2]) ** 2)) <= target_radius:
@@ -320,7 +320,6 @@ while True:
         break
 
     if not first and cur_y - target_pos[1] != 0:
-        _, _, _, _, _, prev_yw = data[-1][-1]
         tan_alfa = delta_lookahead / abs(cur_y - target_pos[1])
 
         alfa_rad = math.atan(tan_alfa)
