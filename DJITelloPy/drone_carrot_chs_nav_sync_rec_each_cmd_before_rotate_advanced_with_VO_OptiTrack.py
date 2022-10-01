@@ -357,7 +357,7 @@ while True:
 
     ready.wait()
 
-    tello.go_xyz_speed(x=x_move, y=y_move, z=0, speed=50)
+    tello.go_xyz_speed(x=int(round(x_move)), y=int(round(y_move)), z=0, speed=50)
     time.sleep(3)
 
     if first:
