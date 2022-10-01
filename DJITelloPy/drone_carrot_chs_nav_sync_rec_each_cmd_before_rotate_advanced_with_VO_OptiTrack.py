@@ -208,7 +208,7 @@ SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
 euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degrees=False)
 euler = euler / np.pi * 180.
 (roll, pitch, yaw) = np.flip(euler)
-tello.rotate_counter_clockwise(yaw)
+tello.rotate_counter_clockwise(int(round(yaw)))
 time.sleep(3)
 
 
@@ -380,7 +380,7 @@ while True:
     euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degrees=False)
     euler = euler / np.pi * 180.
     (roll, pitch, yaw) = np.flip(euler)
-    tello.rotate_counter_clockwise(yaw)
+    tello.rotate_counter_clockwise(int(round(yaw)))
     time.sleep(3)
 
 tello.land()
