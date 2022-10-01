@@ -86,7 +86,7 @@ initial_rotation_view = np.load("initial_rotation_view.npy")
 # res['motion'] = groundTruth
 
 # connect, enable missions pads detection and show battery
-body_id_drone1 = 322  # Drone's ID in Motive
+body_id_drone1 = 326  # Drone's ID in Motive
 body_id_patch = 308  # Patch's ID in Motive
 
 # connect to Opti-Track
@@ -361,7 +361,7 @@ while True:
     time.sleep(3)
 
     if first:
-        tello.rotate_clockwise(prev_yw)
+        tello.rotate_clockwise(round(prev_yw))
         time.sleep(3)
     else:
         tello.rotate_clockwise(cur_rotation)
