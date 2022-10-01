@@ -202,6 +202,15 @@ print("Patch detected: " + str(patch_detected))
 write_idx = 0
 planned = list()
 
+curr_state = telloState(streamingClient)
+SE_motive = curr_state[-1]  # in Y UP system
+SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
+euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degrees=False)
+euler = euler / np.pi * 180.
+(roll, pitch, yaw) = np.flip(euler)
+tello.rotate_counter_clockwise(yaw)
+time.sleep(3)
+
 
 # TODO add writing of planned, VO, add statistics
 def writer_thread():
@@ -329,23 +338,50 @@ while True:
         cur_rotation = alfa_deg - int(round(prev_yw))
         print("cur angle and prev angle are:" + str([alfa_deg, int(round(prev_yw))]))
 
+    if cur_y - target_pos[1] != 0:
+        tan_alpha = delta_lookahead / abs(cur_y - target_pos[1])
+        # x^2 + y^2 = R^2 ; tan(alpha) = delta_lookahead / y_deviation
+        # (tan_alpha+1)*y**2 = R**2 --> y = math.sqrt(R**2 / (tan_alpha+1))
+        y_move_abs = math.sqrt(R ** 2 / (tan_alpha + 1))
+        y_move = float(y_move_abs) if cur_y > 0 else float(-y_move_abs)
+        x_move = math.sqrt(R ** 2 - y_move ** 2)
+        # print("xmove and ymove are: " + str(x_move) + ',' + str(y_move))
+        if abs(x_move) < 20.0 and abs(y_move) < 20.0:
+            if abs(x_move) > abs(y_move):
+                x_move = math.copysign(20.0, x_move)
+            else:
+                y_move = math.copysign(20.0, y_move)
     # end = time.time()
     # print("time is" + str(end - start))
     planned.append(round(alfa_deg))  # TODO: x,y planned can be calculated and written for viz
 
     ready.wait()
-    if not first:
+
+    tello.go_xyz_speed(x=x_move, y=y_move, z=0, speed=50)
+    time.sleep(3)
+
+    if first:
+        tello.rotate_clockwise(prev_yw)
+        time.sleep(3)
+    else:
         tello.rotate_clockwise(cur_rotation)
         time.sleep(3)
 
-    tello.go_xyz_speed(x=R, y=0, z=0, speed=50)
-    time.sleep(3)
     ready.clear()
     response.set()
     ready.wait()
     first = False
     patch_detected = ad.are_4_markers_detected(data[-1][0])
     print("Patch detected: " + str(patch_detected))
+
+    curr_state = telloState(streamingClient)
+    SE_motive = curr_state[-1]  # in Y UP system
+    SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
+    euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degrees=False)
+    euler = euler / np.pi * 180.
+    (roll, pitch, yaw) = np.flip(euler)
+    tello.rotate_counter_clockwise(yaw)
+    time.sleep(3)
 
 tello.land()
 tello.end()
