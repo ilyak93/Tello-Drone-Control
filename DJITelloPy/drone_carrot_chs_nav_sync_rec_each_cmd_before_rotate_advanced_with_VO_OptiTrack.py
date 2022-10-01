@@ -384,6 +384,10 @@ while True:
     time.sleep(3)
 
 tello.land()
+
+state = tello.get_current_state()
+print("finish battery is " + str(state["bat"]))
+
 tello.end()
 recorder.join()
 
