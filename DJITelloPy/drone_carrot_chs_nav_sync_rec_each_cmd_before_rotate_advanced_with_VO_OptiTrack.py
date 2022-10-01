@@ -86,7 +86,7 @@ initial_rotation_view = np.load("initial_rotation_view.npy")
 # res['motion'] = groundTruth
 
 # connect, enable missions pads detection and show battery
-body_id_drone1 = 326  # Drone's ID in Motive
+body_id_drone1 = 333  # Drone's ID in Motive
 body_id_patch = 308  # Patch's ID in Motive
 
 # connect to Opti-Track
@@ -131,7 +131,7 @@ SE_motive = curr_state[-1]  # in Y UP system
 initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
 initial_x_before, initial_y_before = -initial_x, -initial_y
 
-target_translation = 600  # target
+target_translation = 500  # target
 
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
 target_pos = np.asarray([initial_x_before + target_translation, initial_opti_y, initial_z, 0, 0, 0])
@@ -221,7 +221,7 @@ def writer_thread():
         while len(data) > write_idx:
             img = data[write_idx][0]
             SE_tello_NED = data[write_idx][1]
-
+            img = img[..., ::-1]
             im = Image.fromarray(img)
             im.save(BASE_RENDER_DIR + str(write_idx) + '.png')
 
@@ -343,7 +343,7 @@ while True:
         # x^2 + y^2 = R^2 ; tan(alpha) = delta_lookahead / y_deviation
         # (tan_alpha+1)*y**2 = R**2 --> y = math.sqrt(R**2 / (tan_alpha+1))
         y_move_abs = math.sqrt(R ** 2 / (tan_alpha + 1))
-        y_move = float(y_move_abs) if cur_y > 0 else float(-y_move_abs)
+        y_move = float(y_move_abs) if cur_y - target_pos[1] > 0 else float(-y_move_abs)
         x_move = math.sqrt(R ** 2 - y_move ** 2)
         # print("xmove and ymove are: " + str(x_move) + ',' + str(y_move))
         if abs(x_move) < 20.0 and abs(y_move) < 20.0:
