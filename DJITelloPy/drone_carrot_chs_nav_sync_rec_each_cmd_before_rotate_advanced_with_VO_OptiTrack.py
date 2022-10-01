@@ -361,7 +361,7 @@ while True:
     time.sleep(3)
 
     if first:
-        tello.rotate_clockwise(round(prev_yw))
+        tello.rotate_clockwise(int(round(prev_yw)))
         time.sleep(3)
     else:
         tello.rotate_clockwise(cur_rotation)
