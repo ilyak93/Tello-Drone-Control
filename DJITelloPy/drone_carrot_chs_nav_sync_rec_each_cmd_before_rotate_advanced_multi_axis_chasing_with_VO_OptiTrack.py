@@ -23,6 +23,7 @@ dt_cmd = 3.
 cam_calib_fname = 'tello_960_720_calib_djitellopy.p'
 initial_opti_y = np.load("initial_y_translation_axis.npy") * m_to_cm
 initial_rotation_view = np.load("initial_rotation_view.npy")
+slope, bias = np.load("initial_rotation_view.npy")
 delta_lookahead = 100
 R = 25
 
@@ -38,6 +39,11 @@ patch_pose_VO_filename = os.path.join(render_dir, 'patch_pose_VO.csv')
 # TODO: make carrot chasing relative to chosen z of the target
 
 # TODO: add carrot chasing with z-axis
+
+#TODO: save and load first alpha
+
+def compute_y_of_chased_axis(x):
+    return slope * x + bias
 
 tello_intrinsics = [
     [785.75708966, 0., 494.5589324],
@@ -147,19 +153,24 @@ prev_yaw = yaw
 
 print("opti y-axis for carrot chasing is " + str(initial_opti_y))
 print("initial x,y,z,pitch,roll,yaw are + " + str([initial_x_before, initial_y_before, initial_z, pitch, roll, yaw]))
+first_alpha = 54 #TODO: here to load it
+first_y_chase = compute_y_of_chased_axis(25*first_alpha)
+first_carrot_chase_point = (25 * math.sin(first_alpha), first_y_chase) #sanity check 25 * cos(alpha) == first_y_chase
 
-if initial_y - target_pos[1] != 0:
-    tan_alpha = delta_lookahead / abs(initial_y_before - target_pos[1])
+if initial_y - target_pos[1] != 0: #change condition to "not the same point"
+    tan_alpha = delta_lookahead / abs(initial_y_before + first_y_chase) #same as + first_y_chase
 
     alpha_rad = math.atan(tan_alpha)
     alpha_deg = 90 - round(alpha_rad * 180. / math.pi)
-    alpha_deg = alpha_deg if initial_y_before - target_pos[1] < 0 else -alpha_deg
+    alpha_deg = alpha_deg if initial_y_before > first_y_chase  else -alpha_deg
 
     cur_rotoation = alpha_deg - int(round(prev_yaw))
     print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
 
     tello.rotate_clockwise(cur_rotoation)
     time.sleep(3)
+
+#part to this point should be finished
 
 alfa_deg = alpha_deg  # TODO: correct later
 cur_frame = reader.frame
