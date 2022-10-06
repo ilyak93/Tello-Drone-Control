@@ -15,7 +15,7 @@ from TartanVO.TartanVO import TartanVO
 from tello_with_optitrack.aruco_detect import ArucoDetector
 from tello_with_optitrack.position import connectOptitrack, telloState, calc_initial_SE_motive2telloNED_inv, \
     SE_motive2telloNED, patchState
-from skspatial.objects import Line
+from skspatial.objects import Line, Sphere
 from scipy.spatial import distance
 
 m_to_cm = 100
@@ -25,9 +25,12 @@ dt_cmd = 3.
 cam_calib_fname = 'tello_960_720_calib_djitellopy.p'
 initial_opti_y = np.load("initial_y_translation_axis.npy") * m_to_cm
 initial_rotation_view = np.load("initial_rotation_view.npy")
-slope, bias, first_alpha_loaded = np.load("slope_bias_alpha.npy")
+slope, bias, first_alpha_loaded, x, y, z = np.load("slope_bias_alpha.npy")
+start_point = (x, y, z)
 delta_lookahead = 100
 R = 25
+
+start_point
 
 np.random.seed(SEED)
 render_dir = os.path.join(BASE_RENDER_DIR, str(SEED))
@@ -337,6 +340,26 @@ recorder.start()
 
 first = True
 
+point = np.array((initial_x_before, initial_y_before))  # example of a point not "within" the line segment
+projected_point = np.array(line.project_point(point))
+
+if distance.euclidean(point, projected_point) != 0:  # change condition to "not the same point"
+    xy_lookahead = projected_point + (delta_lookahead * math.cos(first_alpha),
+                                      delta_lookahead * math.sin(first_alpha))
+
+    tan_alpha = distance.euclidean(point, projected_point) / distance.euclidean(projected_point, xy_lookahead)
+
+    alpha_rad = math.atan(tan_alpha)
+    alpha_deg = round(alpha_rad * 180. / math.pi)
+    alpha_deg = alpha_deg if point[0] > projected_point[0] else -alpha_deg
+
+    cur_rotoation = alpha_deg - int(round(prev_yaw))
+    print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
+
+    tello.rotate_clockwise(cur_rotoation)
+    time.sleep(3)
+
+
 while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
@@ -348,26 +371,29 @@ while True:
         response.set()
         break
 
-    if not first and cur_y - target_pos[1] != 0:
-        tan_alfa = delta_lookahead / abs(cur_y - target_pos[1])
+    point = np.array(cur_poz)
+    projected_point = np.array(line.project_point(point))
 
-        alfa_rad = math.atan(tan_alfa)
-        alfa_deg = 90 - round(alfa_rad * 180. / math.pi)
-        alfa_deg = alfa_deg if cur_poz[1] - target_pos[1] < 0 else -alfa_deg
+    if not first and distance.euclidean(point, projected_point) != 0:
+        xy_lookahead = projected_point + (delta_lookahead * math.cos(first_alpha),
+                                          delta_lookahead * math.sin(first_alpha))
 
-        cur_rotation = alfa_deg - int(round(prev_yw))
-        print("cur angle and prev angle are:" + str([alfa_deg, int(round(prev_yw))]))
+        tan_alpha = distance.euclidean(point, projected_point) / distance.euclidean(projected_point, xy_lookahead)
 
-    if cur_y - target_pos[1] != 0:
-        tan_alpha = delta_lookahead / abs(cur_y - target_pos[1])
-        # x^2 + y^2 = R^2 ; tan(alpha) = delta_lookahead / y_deviation
-        # (tan_alpha+1)*y**2 = R**2 --> y = math.sqrt(R**2 / (tan_alpha+1))
-        y_move_abs = math.sqrt(R ** 2 / (tan_alpha + 1))
-        y_move = float(y_move_abs) if cur_y - target_pos[1] > 0 else float(-y_move_abs)
-        x_move = math.sqrt(R ** 2 - y_move ** 2)
-        # print("xmove and ymove are: " + str(x_move) + ',' + str(y_move))
-        if abs(x_move) < 20.0 and abs(y_move) < 20.0:
-            if abs(x_move) > abs(y_move):
+        alpha_rad = math.atan(tan_alpha)
+        alpha_deg = round(alpha_rad * 180. / math.pi)
+        alpha_deg = alpha_deg if point[0] > projected_point[0] else -alpha_deg
+
+        cur_rotation = alpha_deg - int(round(prev_yaw))
+        print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
+
+
+    if distance.euclidean(point, projected_point) != 0:
+        sphere = Sphere(point, R)
+        point_a, point_b = sphere.intersect_line(line)
+        xyz_move = point_b if point_b[0] > point_a[0] else point_a
+        if abs(xyz_move[0]) < 20.0 and abs(xyz_move[1]) < 20.0 and abs(xyz_move[2]) < 20.0:
+            if abs(xyz_move[1]) > abs(xyz_move[2]):
                 x_move = math.copysign(20.0, x_move)
             else:
                 y_move = math.copysign(20.0, y_move)
@@ -377,7 +403,7 @@ while True:
 
     ready.wait()
 
-    tello.go_xyz_speed(x=int(round(x_move)), y=int(round(y_move)), z=0, speed=50)
+    tello.go_xyz_speed(x=int(round(xyz_move[1])), y=int(round(xyz_move[0])), z=xyz_move[2], speed=50)
     time.sleep(3)
 
     if first:
