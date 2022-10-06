@@ -17,6 +17,7 @@ from tello_with_optitrack.position import connectOptitrack, telloState, calc_ini
     SE_motive2telloNED, patchState
 from skspatial.objects import Line, Sphere
 from scipy.spatial import distance
+from sklearn.preprocessing import normalize
 
 m_to_cm = 100
 SEED = 54
@@ -114,11 +115,11 @@ tello.streamon()
 time.sleep(1)
 # take off
 tello.takeoff()
-time.sleep(3)
-start_z = 150
+time.sleep(5)
+start_z = 140
 start_point3D = (y, x, start_z)
 tello.go_xyz_speed_mid(x=0, y=0, z=start_z, speed=50, mid=1)
-time.sleep(5)
+time.sleep(3)
 
 tello.disable_mission_pads()
 time.sleep(0.1)
@@ -136,7 +137,7 @@ initial_x_before, initial_y_before = -initial_x, -initial_y
 target_translation = 500  # target
 
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
-target_z_to_choose = 170
+target_z_to_choose = 180
 target_pos = np.asarray([initial_x_before + target_translation, initial_opti_y, target_z_to_choose, 0, 0, 0])
 
 SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
@@ -154,7 +155,8 @@ first_alpha = first_alpha_loaded
 target_x, target_y, target_z = target_pos[0:3]
 line2D = Line.from_points(point_a=start_point2D, point_b=np.array((target_y, target_x)))
 line3D = Line.from_points(point_a=start_point3D,
-                          point_b=np.array((target_y, target_x, target_z)))  # TODO: add saving of starting point
+                          point_b=np.array((target_y, target_x, target_z)))
+
 point2D = np.array((initial_y_before, initial_x_before))
 projected_point2D = np.array(line2D.project_point(point2D))
 
@@ -345,42 +347,47 @@ while True:
         break
 
     point2D = np.array([cur_y, cur_x])
-    projected_point = np.array(line2D.project_point(point2D))
+    projected_point2D = np.array(line2D.project_point(point2D))
 
-    if not first and distance.euclidean(point2D, projected_point) != 0:
-        xy_lookahead = projected_point + (delta_lookahead * math.sin(first_alpha),
-                                          delta_lookahead * math.cos(first_alpha))
+    if not first and distance.euclidean(point2D, projected_point2D) != 0:
+        xy_lookahead = projected_point2D + \
+                       (delta_lookahead * math.sin(first_alpha),
+                        delta_lookahead * math.cos(first_alpha))
 
-        tan_alpha = distance.euclidean(point2D, projected_point) / distance.euclidean(projected_point, xy_lookahead)
+        tan_alpha = distance.euclidean(point2D, projected_point2D) / distance.euclidean(projected_point2D, xy_lookahead)
 
         alpha_rad = math.atan(tan_alpha)
         alpha_deg = round(alpha_rad * 180. / math.pi)
-        alpha_deg = alpha_deg if point2D[1] > projected_point[1] else -alpha_deg
+        alpha_deg = alpha_deg if point2D[1] > projected_point2D[1] else -alpha_deg
 
         cur_rotation = alpha_deg - int(round(prev_yaw))
         print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
 
     point3D = np.array([cur_y, cur_x, cur_z])
     projected_point3D = np.array(line3D.project_point(point3D))
-    if distance.euclidean(point3D, projected_point3D) != 0:
-        sphere = Sphere(point3D, R)
-        point_a, point_b = sphere.intersect_line(line3D)
-        xyz_move = point_b if point_b[0] > point_a[0] else point_a
-        if abs(xyz_move[0]) < 20.0 and abs(xyz_move[1]) < 20.0 and abs(xyz_move[2]) < 20.0:
-            if abs(xyz_move[1]) > abs(xyz_move[2]):
-                xyz_move[1] = math.copysign(20.0, xyz_move[1])
-            else:
-                xyz_move[2] = math.copysign(20.0, xyz_move[2])
-    tmp = xyz_move[1]
-    xyz_move[1] = xyz_move[0]
-    xyz_move[0] = tmp
+
+    tmp_line = Line.from_points(projected_point3D,
+                                np.array([target_y, target_x, target_z]))
+    dir_norm = math.sqrt(tmp_line.direction[0] ** 2 +
+                         tmp_line.direction[1] ** 2 +
+                         tmp_line.direction[2] ** 2)
+    xyz_lookahead = tmp_line.to_point(delta_lookahead / dir_norm)
+    cur_line = Line.from_points(point3D, xyz_lookahead)
+    sphere = Sphere(point3D, R)
+    point_a, point_b = sphere.intersect_line(cur_line)
+    xyz_move = point_b if point_b[1] > point_a[1] else point_a
+    x_move, y_move, z_move = (xyz_move[1] - cur_x, xyz_move[0]- cur_y,
+                              xyz_move[2] - cur_z)
+    if abs(x_move) < 20.0 and abs(y_move) < 20.0 and abs(z_move) < 20.0:
+        if abs(y_move) > abs(z_move):
+            y_move = math.copysign(20.0, y_move)
+        else:
+            z_move = math.copysign(20.0, z_move)
     # end = time.time()
     # print("time is" + str(end - start))
     planned.append(round(alfa_deg))  # TODO: x,y planned can be calculated and written for viz
 
     ready.wait()
-    x_move, y_move, z_move = cur_x - xyz_move[0], cur_y - xyz_move[1], \
-                             cur_z - xyz_move[2]
     tello.go_xyz_speed(x=int(round(x_move)), y=int(round(y_move)),
                        z=int(round(z_move)), speed=50)
     time.sleep(3)
