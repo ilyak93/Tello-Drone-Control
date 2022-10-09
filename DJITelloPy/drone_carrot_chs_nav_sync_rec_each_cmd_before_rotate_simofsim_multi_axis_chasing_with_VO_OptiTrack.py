@@ -175,7 +175,7 @@ if distance.euclidean(point2D, projected_point2D) != 0:
     print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
 
     tello.rotate_clockwise(cur_rotoation)
-    time.sleep(3)
+    time.sleep(1)
 
 # part to this point should be finished
 
@@ -227,7 +227,7 @@ euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degr
 euler = euler / np.pi * 180.
 (roll, pitch, yaw) = np.flip(euler)
 tello.rotate_counter_clockwise(int(round(yaw)))
-time.sleep(3)
+time.sleep(1)
 
 
 # TODO add writing of planned, VO, add statistics
@@ -391,15 +391,15 @@ while True:
 
     ready.wait()
     tello.go_xyz_speed(x=int(round(x_move)), y=-int(round(y_move)),
-                       z=int(round(z_move)), speed=50)
+                       z=int(round(z_move)), speed=20)
     time.sleep(3)
 
     if first:
         tello.rotate_clockwise(int(round(prev_yw)))
-        time.sleep(3)
+        time.sleep(1)
     else:
         tello.rotate_clockwise(cur_rotation)
-        time.sleep(3)
+        time.sleep(1)
 
     ready.clear()
     response.set()
@@ -415,7 +415,7 @@ while True:
     euler = euler / np.pi * 180.
     (roll, pitch, yaw) = np.flip(euler)
     tello.rotate_counter_clockwise(int(round(yaw)))
-    time.sleep(3)
+    time.sleep(1)
 
 tello.land()
 
