@@ -86,7 +86,7 @@ initial_rotation_view = np.load("initial_rotation_view.npy")
 # res['motion'] = groundTruth
 
 # connect, enable missions pads detection and show battery
-body_id_drone1 = 333  # Drone's ID in Motive
+body_id_drone1 = 334  # Drone's ID in Motive
 body_id_patch = 308  # Patch's ID in Motive
 
 # connect to Opti-Track
@@ -335,7 +335,8 @@ while True:
         alfa_deg = 90 - round(alfa_rad * 180. / math.pi)
         alfa_deg = alfa_deg if cur_poz[1] - target_pos[1] < 0 else -alfa_deg
 
-        cur_rotation = alfa_deg - int(round(prev_yw))
+        #cur_rotation = alfa_deg - int(round(prev_yw))
+        cur_rotation = alfa_deg
         print("cur angle and prev angle are:" + str([alfa_deg, int(round(prev_yw))]))
 
     if cur_y - target_pos[1] != 0:
