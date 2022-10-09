@@ -360,7 +360,8 @@ while True:
         alpha_deg = round(alpha_rad * 180. / math.pi)
         alpha_deg = alpha_deg if point2D[1] > projected_point2D[1] else -alpha_deg
 
-        cur_rotation = alpha_deg - int(round(prev_yaw))
+        #cur_rotation = alpha_deg - int(round(prev_yaw))
+        cur_rotation = alpha_deg
         print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
 
     point3D = np.array([cur_y, cur_x, cur_z])
@@ -432,3 +433,4 @@ writer.join()
 # carrot chasing should sleep_wait until gets a signal from recorder
 # that it recorded the last True executed command
 # recorder should sleep_wait while command yet sent to tello drone
+
