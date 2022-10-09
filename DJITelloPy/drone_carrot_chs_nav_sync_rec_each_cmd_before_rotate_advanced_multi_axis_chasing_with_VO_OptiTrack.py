@@ -376,8 +376,9 @@ while True:
     sphere = Sphere(point3D, R)
     point_a, point_b = sphere.intersect_line(cur_line)
     xyz_move = point_b if point_b[1] > point_a[1] else point_a
-    x_move, y_move, z_move = (xyz_move[1] - cur_x, xyz_move[0]- cur_y,
+    x_move, y_move, z_move = (xyz_move[1] - cur_x, xyz_move[0] - cur_y,
                               xyz_move[2] - cur_z)
+    print("move before test is " + str((x_move, -y_move, z_move)))
     if abs(x_move) < 20.0 and abs(y_move) < 20.0 and abs(z_move) < 20.0:
         if abs(y_move) > abs(z_move):
             y_move = math.copysign(20.0, y_move)
@@ -388,7 +389,7 @@ while True:
     planned.append(round(alfa_deg))  # TODO: x,y planned can be calculated and written for viz
 
     ready.wait()
-    tello.go_xyz_speed(x=int(round(x_move)), y=int(round(y_move)),
+    tello.go_xyz_speed(x=int(round(x_move)), y=-int(round(y_move)),
                        z=int(round(z_move)), speed=50)
     time.sleep(3)
 
