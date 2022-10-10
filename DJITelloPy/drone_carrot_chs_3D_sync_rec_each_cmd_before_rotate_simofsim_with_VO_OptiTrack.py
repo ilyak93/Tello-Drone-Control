@@ -15,6 +15,8 @@ from TartanVO.TartanVO import TartanVO
 from tello_with_optitrack.aruco_detect import ArucoDetector
 from tello_with_optitrack.position import connectOptitrack, telloState, calc_initial_SE_motive2telloNED_inv, \
     SE_motive2telloNED, patchState
+from skspatial.objects import Line, Sphere
+from scipy.spatial import distance
 
 m_to_cm = 100
 SEED = 54
@@ -22,6 +24,8 @@ BASE_RENDER_DIR = '/home/vista/ilya_tello_test/OL_trajs_images/'
 dt_cmd = 3.
 cam_calib_fname = 'tello_960_720_calib_djitellopy.p'
 initial_opti_y = np.load("initial_y_translation_axis.npy") * m_to_cm
+slope, bias, _, x, y, _ = np.load("slope_bias_alpha_start_pos.npy")
+start_point2D = (y, x)
 initial_rotation_view = np.load("initial_rotation_view.npy")
 delta_lookahead = 100
 R = 25
@@ -115,8 +119,9 @@ time.sleep(1)
 # take off
 tello.takeoff()
 time.sleep(3)
-tello.go_xyz_speed_mid(x=0, y=0, z=180, speed=20, mid=1)
-time.sleep(5)
+start_z = 140
+start_point3D = (y, x, start_z)
+tello.go_xyz_speed_mid(x=0, y=0, z=start_z, speed=50, mid=1)
 
 tello.disable_mission_pads()
 time.sleep(0.1)
@@ -134,9 +139,10 @@ initial_x_before, initial_y_before = -initial_x, -initial_y
 target_translation = 500  # target
 
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
-target_pos = np.asarray([initial_x_before + target_translation, initial_opti_y, initial_z, 0, 0, 0])
-# TODO replace 0,0,0 with actual angles next
-# TODO align to the initial rotation and not to (0,0,0)
+target_z_to_choose = 180
+target_pos = np.asarray([initial_x_before + target_translation, initial_opti_y,
+                         target_z_to_choose, 0, 0, 0])
+
 
 SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
 
@@ -144,6 +150,10 @@ euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degr
 euler = euler / np.pi * 180.
 (pitch, roll, yaw) = np.flip(euler)
 prev_yaw = yaw
+
+target_x, target_y, target_z = target_pos[0:3]
+line3D = Line.from_points(point_a=start_point3D,
+                          point_b=np.array((target_y, target_x, target_z)))
 
 print("opti y-axis for carrot chasing is " + str(initial_opti_y))
 print("initial x,y,z,pitch,roll,yaw are + " + str([initial_x_before, initial_y_before, initial_z, pitch, roll, yaw]))
@@ -159,7 +169,7 @@ if initial_y - target_pos[1] != 0:
     print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
 
     tello.rotate_clockwise(cur_rotoation)
-    time.sleep(3)
+    time.sleep(1)
 
 alfa_deg = alpha_deg  # TODO: correct later
 cur_frame = reader.frame
@@ -209,7 +219,7 @@ euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degr
 euler = euler / np.pi * 180.
 (roll, pitch, yaw) = np.flip(euler)
 tello.rotate_counter_clockwise(int(round(yaw)))
-time.sleep(3)
+time.sleep(1)
 
 
 # TODO add writing of planned, VO, add statistics
@@ -324,7 +334,7 @@ while True:
     (cur_x, cur_y, cur_z, _, _, prev_yw) = data[-1][-1]
     cur_poz = (cur_x, cur_y, cur_z)
 
-    if math.sqrt(sum((cur_poz[:2] - target_pos[:2]) ** 2)) <= target_radius:
+    if distance.euclidean(cur_poz[:2], target_pos[:2]) <= target_radius:
         response.set()
         break
 
@@ -340,33 +350,43 @@ while True:
         print("cur angle and prev angle are:" + str([alfa_deg, int(round(prev_yw))]))
 
     if cur_y - target_pos[1] != 0:
-        tan_alpha = delta_lookahead / abs(cur_y - target_pos[1])
-        # x^2 + y^2 = R^2 ; tan(alpha) = delta_lookahead / y_deviation
-        # (tan_alpha+1)*y**2 = R**2 --> y = math.sqrt(R**2 / (tan_alpha+1))
-        y_move_abs = math.sqrt(R ** 2 / (tan_alpha + 1))
-        y_move = float(y_move_abs) if cur_y - target_pos[1] > 0 else float(-y_move_abs)
-        x_move = math.sqrt(R ** 2 - y_move ** 2)
-        # print("xmove and ymove are: " + str(x_move) + ',' + str(y_move))
-        if abs(x_move) < 20.0 and abs(y_move) < 20.0:
-            if abs(x_move) > abs(y_move):
-                x_move = math.copysign(20.0, x_move)
-            else:
+        point3D = np.array([cur_y, cur_x, cur_z])
+        projected_point3D = np.array(line3D.project_point(point3D))
+
+        tmp_line = Line.from_points(projected_point3D,
+                                    np.array([target_y, target_x, target_z]))
+        dir_norm = math.sqrt(tmp_line.direction[0] ** 2 +
+                             tmp_line.direction[1] ** 2 +
+                             tmp_line.direction[2] ** 2)
+        xyz_lookahead = tmp_line.to_point(delta_lookahead / dir_norm)
+        cur_line = Line.from_points(point3D, xyz_lookahead)
+        sphere = Sphere(point3D, R)
+        point_a, point_b = sphere.intersect_line(cur_line)
+        xyz_move = point_b if point_b[1] > point_a[1] else point_a
+        x_move, y_move, z_move = (xyz_move[1] - cur_x, xyz_move[0] - cur_y,
+                                  xyz_move[2] - cur_z)
+        print("move before test is " + str((x_move, -y_move, z_move)))
+        if abs(x_move) < 20.0 and abs(y_move) < 20.0 and abs(z_move) < 20.0:
+            if abs(y_move) > abs(z_move):
                 y_move = math.copysign(20.0, y_move)
+            else:
+                z_move = math.copysign(20.0, z_move)
     # end = time.time()
     # print("time is" + str(end - start))
     planned.append(round(alfa_deg))  # TODO: x,y planned can be calculated and written for viz
 
     ready.wait()
 
-    tello.go_xyz_speed(x=int(round(x_move)), y=int(round(y_move)), z=0, speed=50)
+    tello.go_xyz_speed(x=int(round(x_move)), y=-int(round(y_move)),
+                       z=int(round(z_move)), speed=20)
     time.sleep(3)
 
     if first:
         tello.rotate_clockwise(int(round(prev_yw)))
-        time.sleep(3)
+        time.sleep(1)
     else:
         tello.rotate_clockwise(cur_rotation)
-        time.sleep(3)
+        time.sleep(1)
 
     ready.clear()
     response.set()
@@ -382,7 +402,7 @@ while True:
     euler = euler / np.pi * 180.
     (roll, pitch, yaw) = np.flip(euler)
     tello.rotate_counter_clockwise(int(round(yaw)))
-    time.sleep(3)
+    time.sleep(1)
 
 tello.land()
 
