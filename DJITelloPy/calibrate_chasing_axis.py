@@ -18,12 +18,12 @@ if not streamingClient:
 m_to_cm = 100
 opti_state = telloState(streamingClient)
 SE_motive = opti_state[-1]
-x, _, y = SE_motive[0:3, 3] * m_to_cm
+x, z, y = SE_motive[0:3, 3] * m_to_cm
 cur_x, cur_y = -x, -y
 
 
 initial_center_y = np.load("center_y_axis.npy")
-delta_x = 960
+delta_x = 500
 delta_y = cur_y - initial_center_y
 slope = -(delta_x / delta_y) if delta_y < 0 else delta_x / delta_y
 
@@ -42,11 +42,9 @@ if delta_y != 0:
     alpha_rad = math.atan(tan_alpha)
     alpha_deg = 90 - round(alpha_rad * 180. / math.pi)
     alpha_deg = alpha_deg if delta_y < 0 else -alpha_deg
-    alpha = alpha_deg - (-yaw)
+    alpha = alpha_deg - yaw
 
-
-
-
-np.save("slope_bias.npy", np.array(slope, delta_y))
+np.save("slope_bias_alpha_start_pos.npy", np.array((slope, delta_y, alpha, cur_x, cur_y, z)))
 print("turn ur drone to postion of " + str(alpha) + "degrees right (negative is left correspondingly")
+
 
