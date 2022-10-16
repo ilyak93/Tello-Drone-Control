@@ -134,6 +134,7 @@ SE_motive = curr_state[-1]  # in Y UP system
 initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
 initial_x_before, initial_y_before = -initial_x, -initial_y
 
+#TODO: add proper stop condition
 target_translation = 500  # target
 
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
