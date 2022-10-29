@@ -26,7 +26,8 @@ dt_cmd = 3.
 cam_calib_fname = 'tello_960_720_calib_djitellopy.p'
 initial_opti_y = np.load("initial_y_translation_axis.npy") * m_to_cm
 initial_rotation_view = np.load("carrot_chasing_rotation_view.npy")
-slope, bias, first_alpha_loaded, x, y, z = np.load("slope_bias_alpha_start_pos.npy")
+first_alpha_loaded, x, y, z, actual_target_x, actual_target_y, actual_target_z \
+                                   = np.load("alpha_start_pos_target_pos.npy")
 start_point2D = (y, x)
 delta_lookahead = 100
 R = 25
@@ -135,11 +136,10 @@ initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
 initial_x_before, initial_y_before = -initial_x, -initial_y
 
 #TODO: add proper stop condition
-target_translation = 500  # target
 
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
-target_z_to_choose = 180
-target_pos = np.asarray([initial_x_before + target_translation, initial_opti_y, target_z_to_choose, 0, 0, 0])
+
+target_pos = np.asarray([actual_target_x, actual_target_y, actual_target_z, 0, 0, 0])
 
 SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
 
