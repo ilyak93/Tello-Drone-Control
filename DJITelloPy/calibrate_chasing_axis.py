@@ -7,7 +7,7 @@ from tello_with_optitrack.position import connectOptitrack, telloState, \
     SE_motive2telloNED
 import math
 
-body_id_drone1 = 334  # Drone's ID in Motive
+body_id_drone1 = 333  # Drone's ID in Motive
 body_id_patch = 308  # Patch's ID in Motive
 
 m_to_cm = 100
@@ -20,17 +20,16 @@ if not streamingClient:
     print("Optitrack connection error")
     exit(-1)
 
-m_to_cm = 100
 opti_state = telloState(streamingClient)
 SE_motive = opti_state[-1]
 x, _, y = SE_motive[0:3, 3] * m_to_cm
 initial_x, initial_y = -x, -y
 takeoff_height = 140
 
-target_translation = 700  # target
+target_translation = 500  # target
 
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
-target_z_to_choose = 220
+target_z_to_choose = 250
 target_pos = np.asarray([initial_x + target_translation, initial_center_y,
                          target_z_to_choose])
 
