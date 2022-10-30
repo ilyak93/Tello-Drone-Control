@@ -25,9 +25,9 @@ BASE_RENDER_DIR = '/home/vista/ilya_tello_test/OL_trajs_images/'
 dt_cmd = 3.
 cam_calib_fname = 'tello_960_720_calib_djitellopy.p'
 initial_opti_y = np.load("initial_y_translation_axis.npy") * m_to_cm
-initial_rotation_view = np.load("carrot_chasing_rotation_view.npy")
+# initial_rotation_view = np.load("carrot_chasing_rotation_view.npy")
 first_alpha_loaded, x, y, z, actual_target_x, actual_target_y, actual_target_z \
-                                   = np.load("alpha_start_pos_target_pos.npy")
+    = np.load("alpha_start_pos_target_pos.npy")
 start_point2D = (y, x)
 delta_lookahead = 100
 R = 25
@@ -135,21 +135,12 @@ SE_motive = curr_state[-1]  # in Y UP system
 initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
 initial_x_before, initial_y_before = -initial_x, -initial_y
 
-#TODO: add proper stop condition
+# TODO: add proper stop condition
 
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
 
 target_pos = np.asarray([actual_target_x, actual_target_y, actual_target_z, 0, 0, 0])
 
-SE_tello_NED_to_navigate = SE_motive2telloNED(SE_motive, initial_rotation_view)
-
-euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degrees=False)
-euler = euler / np.pi * 180.
-(pitch, roll, yaw) = np.flip(euler)
-prev_yaw = yaw
-
-print("opti y-axis for carrot chasing is " + str(initial_opti_y))
-print("initial x,y,z,pitch,roll,yaw are + " + str([initial_x_before, initial_y_before, initial_z, pitch, roll, yaw]))
 first_alpha = first_alpha_loaded
 # first_y_chase = compute_y_of_chased_axis(25*first_alpha)
 # first_carrot_chase_point = (25 * math.sin(first_alpha), first_y_chase) #sanity check 25 * cos(alpha) == first_y_chase
@@ -158,29 +149,6 @@ line2D = Line.from_points(point_a=start_point2D, point_b=np.array((target_y, tar
 line3D = Line.from_points(point_a=start_point3D,
                           point_b=np.array((target_y, target_x, target_z)))
 
-point2D = np.array((initial_y_before, initial_x_before))
-projected_point2D = np.array(line2D.project_point(point2D))
-
-if distance.euclidean(point2D, projected_point2D) != 0:
-    xy_lookahead = projected_point2D + (delta_lookahead * math.sin(first_alpha),
-                                        delta_lookahead * math.cos(first_alpha))
-
-    tan_alpha = distance.euclidean(point2D, projected_point2D) / \
-                distance.euclidean(projected_point2D, xy_lookahead)
-
-    alpha_rad = math.atan(tan_alpha)
-    alpha_deg = round(alpha_rad * 180. / math.pi)
-    alpha_deg = alpha_deg if point2D[1] > projected_point2D[1] else -alpha_deg
-
-    cur_rotoation = alpha_deg - int(round(prev_yaw))
-    print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
-
-    tello.rotate_clockwise(cur_rotoation)
-    time.sleep(1)
-
-# part to this point should be finished
-
-alfa_deg = alpha_deg  # TODO: correct later
 cur_frame = reader.frame
 curr_state = telloState(streamingClient)
 patch_state = patchState(streamingClient)
@@ -334,8 +302,6 @@ recorder.start()
 # calculate carrot chasing moves and send to execution
 # get first frame and its xyz label
 
-first = True
-
 while True:
     # this calculatins takes 0.0 seconds
     # start = time.time()
@@ -350,20 +316,23 @@ while True:
     point2D = np.array([cur_y, cur_x])
     projected_point2D = np.array(line2D.project_point(point2D))
 
-    if not first and distance.euclidean(point2D, projected_point2D) != 0:
+    if distance.euclidean(point2D, projected_point2D) != 0:
         xy_lookahead = projected_point2D + \
                        (delta_lookahead * math.sin(first_alpha),
                         delta_lookahead * math.cos(first_alpha))
 
-        tan_alpha = distance.euclidean(point2D, projected_point2D) / distance.euclidean(projected_point2D, xy_lookahead)
+        dis1 = distance.euclidean(point2D, projected_point2D)
+        dis2 = distance.euclidean(projected_point2D, xy_lookahead)
+        tan_alpha = dis1 / dis2
 
         alpha_rad = math.atan(tan_alpha)
         alpha_deg = round(alpha_rad * 180. / math.pi)
-        alpha_deg = alpha_deg if point2D[1] > projected_point2D[1] else -alpha_deg
+        alpha_deg = first_alpha + alpha_deg \
+            if point2D[1] > projected_point2D[1] else first_alpha - alpha_deg
 
-        #cur_rotation = alpha_deg - int(round(prev_yaw))
-        cur_rotation = alpha_deg
-        print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
+        # cur_rotation = alpha_deg - int(round(prev_yaw))
+        cur_rotation = int(round(alpha_deg))
+        # print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
 
     point3D = np.array([cur_y, cur_x, cur_z])
     projected_point3D = np.array(line3D.project_point(point3D))
@@ -388,24 +357,19 @@ while True:
             z_move = math.copysign(20.0, z_move)
     # end = time.time()
     # print("time is" + str(end - start))
-    planned.append(round(alfa_deg))  # TODO: x,y planned can be calculated and written for viz
+    # planned.append(round(alfa_deg))  # TODO: x,y planned can be calculated and written for viz
 
     ready.wait()
     tello.go_xyz_speed(x=int(round(x_move)), y=-int(round(y_move)),
                        z=int(round(z_move)), speed=20)
     time.sleep(3)
-
-    if first:
-        tello.rotate_clockwise(int(round(prev_yw)))
-        time.sleep(1)
-    else:
-        tello.rotate_clockwise(cur_rotation)
-        time.sleep(1)
+    tello.rotate_clockwise(cur_rotation)
+    time.sleep(1)
 
     ready.clear()
     response.set()
     ready.wait()
-    first = False
+
     patch_detected = ad.are_4_markers_detected(data[-1][0])
     print("Patch detected: " + str(patch_detected))
 
