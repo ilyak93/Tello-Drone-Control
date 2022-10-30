@@ -26,8 +26,8 @@ dt_cmd = 3.
 cam_calib_fname = 'tello_960_720_calib_djitellopy.p'
 initial_opti_y = np.load("initial_y_translation_axis.npy") * m_to_cm
 # initial_rotation_view = np.load("carrot_chasing_rotation_view.npy")
-first_alpha_loaded, x, y, z, actual_target_x, actual_target_y, actual_target_z \
-    = np.load("alpha_start_pos_target_pos.npy")
+first_alpha_loaded, x, y, z, target_x, target_y, target_z, x_stop, \
+    = np.load("alpha_start_pos_target_pos_x_stop.npy")
 start_point2D = (y, x)
 delta_lookahead = 100
 R = 25
@@ -139,7 +139,7 @@ initial_x_before, initial_y_before = -initial_x, -initial_y
 
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
 
-target_pos = np.asarray([actual_target_x, actual_target_y, actual_target_z, 0, 0, 0])
+target_pos = np.asarray([target_x, target_y, target_z, 0, 0, 0])
 
 first_alpha = first_alpha_loaded
 # first_y_chase = compute_y_of_chased_axis(25*first_alpha)
@@ -286,7 +286,8 @@ def recorder_thread(reader):
         print("current pos is " + str(cur_pose))
 
         print("dist from target " + str(distance.euclidean(cur_poz[:2], target_pos[:2])))
-        if distance.euclidean(cur_poz[:2], target_pos[:2]) <= target_radius:
+        if distance.euclidean(cur_poz[:2], target_pos[:2]) <= target_radius or \
+                cur_poz[0] > x_stop:
             ready.set()
             break
 
@@ -309,7 +310,8 @@ while True:
     (cur_x, cur_y, cur_z, _, _, prev_yw) = data[-1][-1]
     cur_poz = (cur_x, cur_y, cur_z)
 
-    if distance.euclidean(cur_poz[:2], target_pos[:2]) <= target_radius:
+    if distance.euclidean(cur_poz[:2], target_pos[:2]) <= target_radius or \
+            cur_poz[0] > x_stop:
         response.set()
         break
 
