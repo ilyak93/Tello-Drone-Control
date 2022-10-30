@@ -317,7 +317,8 @@ while True:
 
     point2D = np.array([cur_y, cur_x])
     projected_point2D = np.array(line2D.project_point(point2D))
-
+    
+    #TODO: change this to tan(alpha) = actual_x_3D / actual_y_3D 
     if distance.euclidean(point2D, projected_point2D) != 0:
         xy_lookahead = projected_point2D + \
                        (delta_lookahead * math.sin(first_alpha),
