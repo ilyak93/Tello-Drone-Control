@@ -329,8 +329,9 @@ while True:
 
         alpha_rad = math.atan(tan_alpha)
         alpha_deg = round(alpha_rad * 180. / math.pi)
+        #TODO: ensure that for straight movement point2D[1] == projected_point2D[1] // seems that it does.
         alpha_deg = first_alpha + alpha_deg \
-            if point2D[1] > projected_point2D[1] else first_alpha - alpha_deg
+            if point2D[1] >= projected_point2D[1] else first_alpha - alpha_deg
 
         # cur_rotation = alpha_deg - int(round(prev_yaw))
         cur_rotation = int(round(alpha_deg))
