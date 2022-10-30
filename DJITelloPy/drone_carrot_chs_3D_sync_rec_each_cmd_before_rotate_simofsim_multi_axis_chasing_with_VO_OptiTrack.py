@@ -88,7 +88,7 @@ initial_rotation_view = np.load("initial_rotation_view.npy")
 # res['motion'] = groundTruth
 
 # connect, enable missions pads detection and show battery
-body_id_drone1 = 334  # Drone's ID in Motive
+body_id_drone1 = 333  # Drone's ID in Motive
 body_id_patch = 308  # Patch's ID in Motive
 
 # connect to Opti-Track
@@ -417,6 +417,8 @@ while True:
     (roll, pitch, yaw) = np.flip(euler)
     tello.rotate_counter_clockwise(int(round(yaw)))
     time.sleep(1)
+    stat = tello.get_current_state()
+    print("battery is " + str(stat["bat"]))
 
 tello.land()
 
