@@ -26,31 +26,15 @@ x, _, y = SE_motive[0:3, 3] * m_to_cm
 initial_x, initial_y = -x, -y
 takeoff_height = 140
 
-target_translation = 500  # target
+target_translation = 700  # target
 
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
 target_z_to_choose = 250
 target_pos = np.asarray([initial_x + target_translation, initial_center_y,
                          target_z_to_choose])
+delta_x = target_translation
+delta_y = initial_y - initial_center_y
 
-start_point3D = (initial_y, initial_x, takeoff_height)
-target_x, target_y, target_z = target_pos[0:3]
-
-source_to_target_chase_axis = Line.from_points(point_a=start_point3D,
-                                               point_b=np.array((target_y,
-                                                                 target_x,
-                                                                 target_z)))
-
-R = target_translation
-sphere = Sphere(start_point3D, R)
-point_a, point_b = sphere.intersect_line(source_to_target_chase_axis)
-
-actual_target = point_a if point_a[1] > point_b[1] else point_b
-
-#delta_x = target_translation
-delta_x = actual_target[1] - initial_x
-#delta_y = initial_y - initial_center_y
-delta_y = initial_y - actual_target[0]
 alpha = 0
 
 initial_rotation_view = np.load("initial_rotation_view.npy")
@@ -67,10 +51,11 @@ if delta_y != 0:
     alpha_deg = alpha_deg if delta_y < 0 else -alpha_deg
     alpha = alpha_deg - yaw
 
-np.save("alpha_start_pos_target_pos.npy", np.array((alpha, initial_x,
+np.save("alpha_start_pos_target_pos.npy", np.array((alpha_deg, initial_x,
                                                     initial_y, takeoff_height,
-                                                    actual_target[1],
-                                                    actual_target[0],
-                                                    actual_target[2])))
-print("turn ur drone to postion of " + str(alpha) + "degrees right (negative is left correspondingly")
+                                                    target_pos[0],
+                                                    target_pos[1],
+                                                    target_pos[2])))
+print("turn ur drone to postion of " + str(alpha) +
+      "degrees right (negative is left correspondingly")
 
