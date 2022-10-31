@@ -116,11 +116,11 @@ tello.streamon()
 time.sleep(1)
 # take off
 tello.takeoff()
-time.sleep(5)
+time.sleep(6)
 start_z = 140
 start_point3D = (y, x, start_z)
 tello.go_xyz_speed_mid(x=0, y=0, z=start_z, speed=50, mid=1)
-time.sleep(3)
+time.sleep(4)
 
 tello.disable_mission_pads()
 time.sleep(0.1)
@@ -196,7 +196,7 @@ euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degr
 euler = euler / np.pi * 180.
 (roll, pitch, yaw) = np.flip(euler)
 tello.rotate_counter_clockwise(int(round(yaw)))
-time.sleep(1)
+time.sleep(2)
 
 
 # TODO add writing of planned, VO, add statistics
@@ -315,29 +315,6 @@ while True:
         response.set()
         break
 
-    point2D = np.array([cur_y, cur_x])
-    projected_point2D = np.array(line2D.project_point(point2D))
-
-    #TODO: change this to tan(alpha) = actual_x_3D / actual_y_3D
-    if distance.euclidean(point2D, projected_point2D) != 0:
-        xy_lookahead = projected_point2D + \
-                       (delta_lookahead * math.sin(first_alpha),
-                        delta_lookahead * math.cos(first_alpha))
-
-        dis1 = distance.euclidean(point2D, projected_point2D)
-        dis2 = distance.euclidean(projected_point2D, xy_lookahead)
-        tan_alpha = dis1 / dis2
-
-        alpha_rad = math.atan(tan_alpha)
-        alpha_deg = round(alpha_rad * 180. / math.pi)
-        #TODO: ensure that for straight movement point2D[1] == projected_point2D[1] // seems that it does.
-        alpha_deg = first_alpha + alpha_deg \
-            if point2D[0] < projected_point2D[0] else first_alpha - alpha_deg
-
-        # cur_rotation = alpha_deg - int(round(prev_yaw))
-        cur_rotation = int(round(alpha_deg))
-        # print("cur angle and prev angle are:" + str([alpha_deg, int(round(prev_yaw))]))
-
     point3D = np.array([cur_y, cur_x, cur_z])
     projected_point3D = np.array(line3D.project_point(point3D))
 
@@ -362,6 +339,12 @@ while True:
     # end = time.time()
     # print("time is" + str(end - start))
     # planned.append(round(alfa_deg))  # TODO: x,y planned can be calculated and written for viz
+    tan_alpha = abs(y_move) / x_move
+    alpha_rad = math.atan(tan_alpha)
+    alpha_deg = round(alpha_rad * 180. / math.pi)
+    alpha_deg = first_alpha + alpha_deg \
+        if point3D[0] < projected_point3D[0] else first_alpha - alpha_deg  # TODO: think about == situtation
+    cur_rotation = int(round(alpha_deg))
 
     ready.wait()
     tello.go_xyz_speed(x=int(round(x_move)), y=-int(round(y_move)),
