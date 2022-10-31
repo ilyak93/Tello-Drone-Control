@@ -135,8 +135,6 @@ SE_motive = curr_state[-1]  # in Y UP system
 initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
 initial_x_before, initial_y_before = -initial_x, -initial_y
 
-# TODO: add proper stop condition
-
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
 
 target_pos = np.asarray([target_x, target_y, target_z, 0, 0, 0])
@@ -343,7 +341,7 @@ while True:
     alpha_rad = math.atan(tan_alpha)
     alpha_deg = round(alpha_rad * 180. / math.pi)
     alpha_deg = first_alpha + alpha_deg \
-        if point3D[0] < projected_point3D[0] else first_alpha - alpha_deg  # TODO: think about == situtation
+        if point3D[0] < projected_point3D[0] else first_alpha - alpha_deg
     cur_rotation = int(round(alpha_deg))
 
     ready.wait()
