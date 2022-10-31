@@ -317,8 +317,8 @@ while True:
 
     point2D = np.array([cur_y, cur_x])
     projected_point2D = np.array(line2D.project_point(point2D))
-    
-    #TODO: change this to tan(alpha) = actual_x_3D / actual_y_3D 
+
+    #TODO: change this to tan(alpha) = actual_x_3D / actual_y_3D
     if distance.euclidean(point2D, projected_point2D) != 0:
         xy_lookahead = projected_point2D + \
                        (delta_lookahead * math.sin(first_alpha),
@@ -332,7 +332,7 @@ while True:
         alpha_deg = round(alpha_rad * 180. / math.pi)
         #TODO: ensure that for straight movement point2D[1] == projected_point2D[1] // seems that it does.
         alpha_deg = first_alpha + alpha_deg \
-            if point2D[1] >= projected_point2D[1] else first_alpha - alpha_deg
+            if point2D[0] < projected_point2D[0] else first_alpha - alpha_deg
 
         # cur_rotation = alpha_deg - int(round(prev_yaw))
         cur_rotation = int(round(alpha_deg))
