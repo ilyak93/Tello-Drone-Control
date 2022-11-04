@@ -196,7 +196,8 @@ euler = euler / np.pi * 180.
 tello.rotate_counter_clockwise(int(round(yaw)))
 time.sleep(2)
 
-
+# TODO: add visualizations for 2D and 3D
+# TODO: write patch detected into name of image
 # TODO add writing of planned, VO, add statistics
 def writer_thread():
     global data, write_idx, planned
@@ -208,7 +209,7 @@ def writer_thread():
             SE_tello_NED = data[write_idx][1]
             img = img[..., ::-1]
             im = Image.fromarray(img)
-            im.save(BASE_RENDER_DIR + str(write_idx) + '.png')
+            im.save(render_dir + '/' + str(write_idx) + '.png')
 
             labels_writer.writerow(list(SE_tello_NED[0]) + list(SE_tello_NED[1]) + list(SE_tello_NED[2]))
             write_idx = write_idx + 1
