@@ -337,11 +337,11 @@ while True:
     # end = time.time()
     # print("time is" + str(end - start))
     # planned.append(round(alfa_deg))  # TODO: x,y planned can be calculated and written for viz
-    tan_alpha = abs(y_move) / x_move
+    tan_alpha = y_move / x_move
     alpha_rad = math.atan(tan_alpha)
     alpha_deg = round(alpha_rad * 180. / math.pi)
-    alpha_deg = first_alpha + alpha_deg \
-        if point3D[0] < projected_point3D[0] else first_alpha - alpha_deg
+    #alpha_deg = first_alpha + alpha_deg \
+    #    if point3D[0] < projected_point3D[0] else first_alpha - alpha_deg
     cur_rotation = int(round(alpha_deg))
 
     ready.wait()
