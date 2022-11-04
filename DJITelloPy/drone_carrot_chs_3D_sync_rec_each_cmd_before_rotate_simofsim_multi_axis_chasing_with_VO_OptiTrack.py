@@ -143,7 +143,7 @@ first_alpha = first_alpha_loaded
 # first_y_chase = compute_y_of_chased_axis(25*first_alpha)
 # first_carrot_chase_point = (25 * math.sin(first_alpha), first_y_chase) #sanity check 25 * cos(alpha) == first_y_chase
 target_x, target_y, target_z = target_pos[0:3]
-line2D = Line.from_points(point_a=start_point2D, point_b=np.array((target_y, target_x)))
+
 line3D = Line.from_points(point_a=start_point3D,
                           point_b=np.array((target_y, target_x, target_z)))
 
