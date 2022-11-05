@@ -24,7 +24,7 @@ SEED = 54
 BASE_RENDER_DIR = '/home/vista/ilya_tello_test/OL_trajs_images/'
 dt_cmd = 3.
 cam_calib_fname = 'tello_960_720_calib_djitellopy.p'
-initial_opti_y = np.load("initial_y_translation_axis.npy") * m_to_cm
+initial_opti_y = np.load("center_y_axis.npy") * m_to_cm
 # initial_rotation_view = np.load("carrot_chasing_rotation_view.npy")
 first_alpha_loaded, x, y, z, target_x, target_y, target_z, x_stop, \
     = np.load("alpha_start_pos_target_pos_x_stop.npy")
@@ -238,6 +238,7 @@ target_radius = 30
 
 
 # TODO: make data a readable dict
+# TODO: check if last frame recorded is in the same place as previous (and ignore/delete it if it indeed)
 def recorder_thread(reader):
     global response, data, ready, focalx, focaly, centerx, centery, transform
     while True:
@@ -263,8 +264,8 @@ def recorder_thread(reader):
                                                                   ptch, rol,
                                                                   yw]))
 
-        patch_detectd = ad.are_4_markers_detected(data[-1][0])
-        print("Patch detected: " + str(patch_detectd))
+        #patch_detectd = ad.are_4_markers_detected(data[-1][0])
+        #print("Patch detected: " + str(patch_detectd))
 
         cur_fram = reader.frame
         sample = {'img1': data[-1][0], 'img2': cur_fram}
@@ -338,7 +339,7 @@ while True:
     # end = time.time()
     # print("time is" + str(end - start))
     # planned.append(round(alfa_deg))  # TODO: x,y planned can be calculated and written for viz
-    tan_alpha = y_move / x_move
+    tan_alpha = round(y_move) / round(x_move)
     alpha_rad = math.atan(tan_alpha)
     alpha_deg = round(alpha_rad * 180. / math.pi)
     #alpha_deg = first_alpha + alpha_deg \
