@@ -28,7 +28,7 @@ initial_opti_y = np.load("center_y_axis.npy") * m_to_cm
 # initial_rotation_view = np.load("carrot_chasing_rotation_view.npy")
 first_alpha_loaded, x, y, z, target_x, target_y, target_z, x_stop, \
     = np.load("alpha_start_pos_target_pos_x_stop.npy")
-start_point2D = (y, x)
+
 delta_lookahead = 100
 R = 25
 
