@@ -349,7 +349,7 @@ while True:
         break
 
     tello.go_xyz_speed(x=int(round(x_move)), y=-int(round(y_move)),
-                       z=int(round(z_move)), speed=20)
+                       z=int(round(z_move)), speed=50)
     time.sleep(3)
     tello.rotate_clockwise(cur_rotation)
     time.sleep(1)
@@ -372,20 +372,22 @@ while True:
     stat = tello.get_current_state()
     print("battery is " + str(stat["bat"]))
 
-tello.land()
-
-state = tello.get_current_state()
-print("finish battery is " + str(state["bat"]))
-
-tello.end()
-recorder.join()
-
-writer = threading.Thread(target=writer_thread, args=())
-writer.start()
-writer.join()
-
-# signals on response and signals on executed :
-# carrot chasing should sleep_wait until gets a signal from recorder
-# that it recorded the last True executed command
-# recorder should sleep_wait while command yet sent to tello drone
+try:
+    tello.land()
+    state = tello.get_current_state()
+    print("finish battery is " + str(state["bat"]))
+    tello.end()
+except:
+    pass
+finally:
+    recorder.join()
+    
+    writer = threading.Thread(target=writer_thread, args=())
+    writer.start()
+    writer.join()
+    
+    # signals on response and signals on executed :
+    # carrot chasing should sleep_wait until gets a signal from recorder
+    # that it recorded the last True executed command
+    # recorder should sleep_wait while command yet sent to tello drone
 
