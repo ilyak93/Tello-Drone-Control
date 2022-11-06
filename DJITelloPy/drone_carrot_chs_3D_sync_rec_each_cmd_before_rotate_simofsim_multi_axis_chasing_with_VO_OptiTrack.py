@@ -285,9 +285,9 @@ def recorder_thread(reader):
 
         print("current pos is " + str(cur_pose))
 
-        print("dist from target " + str(distance.euclidean(cur_poz[:2], target_pos[:2])))
-        if distance.euclidean(cur_poz[:2], target_pos[:2]) <= target_radius or \
-                cur_poz[0] > x_stop:
+        print("dist from target " + str(distance.euclidean(cur_pose[:2], target_pos[:2])))
+        if distance.euclidean(cur_pose[:2], target_pos[:2]) <= target_radius or \
+                cur_pose[0] > x_stop:
             ready.set()
             break
 
@@ -309,11 +309,6 @@ while True:
     # print("loc = " + str(executed[-1]))
     (cur_x, cur_y, cur_z, _, _, prev_yw) = data[-1][-1]
     cur_poz = (cur_x, cur_y, cur_z)
-
-    if distance.euclidean(cur_poz[:2], target_pos[:2]) <= target_radius or \
-            cur_poz[0] > x_stop:
-        response.set()
-        break
 
     point3D = np.array([cur_y, cur_x, cur_z])
     projected_point3D = np.array(line3D.project_point(point3D))
@@ -347,6 +342,12 @@ while True:
     cur_rotation = int(round(alpha_deg))
 
     ready.wait()
+
+    if distance.euclidean(cur_poz[:2], target_pos[:2]) <= target_radius or \
+            cur_poz[0] > x_stop:
+        response.set()
+        break
+
     tello.go_xyz_speed(x=int(round(x_move)), y=-int(round(y_move)),
                        z=int(round(z_move)), speed=20)
     time.sleep(3)
