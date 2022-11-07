@@ -238,7 +238,6 @@ target_radius = 30
 
 
 # TODO: make data a readable dict
-# TODO: check if last frame recorded is in the same place as previous (and ignore/delete it if it indeed)
 def recorder_thread(reader):
     global response, data, ready, focalx, focaly, centerx, centery, transform
     while True:
@@ -381,11 +380,11 @@ except:
     pass
 finally:
     recorder.join()
-    
+
     writer = threading.Thread(target=writer_thread, args=())
     writer.start()
     writer.join()
-    
+
     # signals on response and signals on executed :
     # carrot chasing should sleep_wait until gets a signal from recorder
     # that it recorded the last True executed command
