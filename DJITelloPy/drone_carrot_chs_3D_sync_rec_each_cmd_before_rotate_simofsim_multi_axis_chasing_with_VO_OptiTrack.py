@@ -40,6 +40,7 @@ if not os.path.exists(render_dir):
 
 labels_filename = os.path.join(render_dir, 'pose_file.csv')  # For pose in VO frame
 patch_pose_VO_filename = os.path.join(render_dir, 'patch_pose_VO.csv')
+pose_planned = os.path.join(render_dir, 'pose_planned.txt')
 
 tello_intrinsics = [
     [785.75708966, 0., 494.5589324],
@@ -202,7 +203,8 @@ time.sleep(2)
 def writer_thread():
     global data, write_idx, planned
     with open(labels_filename, 'w') as labels_file, \
-            open(patch_pose_VO_filename, 'w') as patch_pose_VO_file:
+            open(patch_pose_VO_filename, 'w') as patch_pose_VO_file, \
+            open(pose_planned, 'w') as planned_file:
         labels_writer = csv.writer(labels_file)
         while len(data) > write_idx:
             img = data[write_idx][0]
@@ -223,9 +225,9 @@ def writer_thread():
         #    pred_file.write("%f %f %f %f %f %f\n"
         #                    % (predicted[0, 0], predicted[0, 1], predicted[0, 2],
         #                       predicted[0, 3], predicted[0, 4], predicted[0, 5]))
-        # planned_file.write("%f %f %f\n" % (planned[write_idx][0],
-        #                                   planned[write_idx][1],
-        #                                   planned[write_idx][2]))
+        planned_file.write("%f %f %f\n" % (planned[write_idx][0],
+                                           planned[write_idx][1],
+                                          planned[write_idx][2]))
 
 
 # last is False as last recording which is the first in this case have not done yet
@@ -332,7 +334,6 @@ while True:
             z_move = math.copysign(20.0, z_move)
     # end = time.time()
     # print("time is" + str(end - start))
-    # planned.append(round(alfa_deg))  # TODO: x,y planned can be calculated and written for viz
     tan_alpha = round(y_move) / round(x_move)
     alpha_rad = math.atan(tan_alpha)
     alpha_deg = round(alpha_rad * 180. / math.pi)
@@ -346,6 +347,8 @@ while True:
             cur_poz[0] > x_stop:
         response.set()
         break
+
+    planned.append((round(x_move), round(y_move), round(z_move)))
 
     tello.go_xyz_speed(x=int(round(x_move)), y=-int(round(y_move)),
                        z=int(round(z_move)), speed=50)
