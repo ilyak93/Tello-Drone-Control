@@ -34,13 +34,19 @@ R = 25
 
 np.random.seed(SEED)
 render_dir = os.path.join(BASE_RENDER_DIR, str(SEED))
+viz_dir = os.path.join(render_dir,'viz')
 
 if not os.path.exists(render_dir):
     os.makedirs(render_dir)
 
+if not os.path.exists(render_dir):
+    os.makedirs(viz_dir)
+
 labels_filename = os.path.join(render_dir, 'pose_file.csv')  # For pose in VO frame
 patch_pose_VO_filename = os.path.join(render_dir, 'patch_pose_VO.csv')
-pose_planned = os.path.join(render_dir, 'pose_planned.txt')
+pose_GT = os.path.join(viz_dir, 'pose_GT.txt')
+pose_pred = os.path.join(viz_dir, 'pose_pred.txt')
+pose_planned = os.path.join(viz_dir, 'pose_planned.txt')
 
 tello_intrinsics = [
     [785.75708966, 0., 494.5589324],
@@ -204,7 +210,9 @@ def writer_thread():
     global data, write_idx, planned
     with open(labels_filename, 'w') as labels_file, \
             open(patch_pose_VO_filename, 'w') as patch_pose_VO_file, \
-            open(pose_planned, 'w') as planned_file:
+            open(pose_GT, 'w+') as gt_file, \
+            open(pose_pred, 'w+') as pred_file, \
+            open(pose_planned, 'w+') as planned_file:
         labels_writer = csv.writer(labels_file)
         while len(data) > write_idx:
             img = data[write_idx][0]
@@ -212,22 +220,26 @@ def writer_thread():
             img = img[..., ::-1]
             im = Image.fromarray(img)
             im.save(render_dir + '/' + str(write_idx) + '.png')
-
             labels_writer.writerow(list(SE_tello_NED[0]) + list(SE_tello_NED[1]) + list(SE_tello_NED[2]))
+            # files for vizualisation
+            x, y, z, pitch, roll, yaw, pad = data[write_idx][4]
+            gt_file.write("%f %f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw, pad))
+            if write_idx >= 1:
+                predicted = data[write_idx][2]
+                pred_file.write("%f %f %f %f %f %f\n"
+                                % (predicted[0, 0], predicted[0, 1], predicted[0, 2],
+                                   predicted[0, 3], predicted[0, 4], predicted[0, 5]))
+            planned_file.write("%f %f %f\n" % (planned[write_idx][0],
+                                               planned[write_idx][1],
+                                               planned[write_idx][2]))
+            
             write_idx = write_idx + 1
         patch_pose_VO_writer = csv.writer(patch_pose_VO_file)
         SE_patch_NED = data[0][2]
         patch_pose_VO_writer.writerow(list(SE_patch_NED[0]) + list(SE_patch_NED[1]) + list(SE_patch_NED[2]))
 
-        # gt_file.write("%f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw))
-        # if write_idx >= 1:
-        #    predicted = data[write_idx][2]
-        #    pred_file.write("%f %f %f %f %f %f\n"
-        #                    % (predicted[0, 0], predicted[0, 1], predicted[0, 2],
-        #                       predicted[0, 3], predicted[0, 4], predicted[0, 5]))
-        planned_file.write("%f %f %f\n" % (planned[write_idx][0],
-                                           planned[write_idx][1],
-                                          planned[write_idx][2]))
+        
+        
 
 
 # last is False as last recording which is the first in this case have not done yet
