@@ -39,7 +39,7 @@ viz_dir = os.path.join(render_dir,'viz')
 if not os.path.exists(render_dir):
     os.makedirs(render_dir)
 
-if not os.path.exists(render_dir):
+if not os.path.exists(viz_dir):
     os.makedirs(viz_dir)
 
 labels_filename = os.path.join(render_dir, 'pose_file.csv')  # For pose in VO frame
@@ -210,9 +210,9 @@ def writer_thread():
     global data, write_idx, planned
     with open(labels_filename, 'w') as labels_file, \
             open(patch_pose_VO_filename, 'w') as patch_pose_VO_file, \
-            open(pose_GT, 'w+') as gt_file, \
-            open(pose_pred, 'w+') as pred_file, \
-            open(pose_planned, 'w+') as planned_file:
+            open(pose_GT, 'w') as gt_file, \
+            open(pose_pred, 'w') as pred_file, \
+            open(pose_planned, 'w') as planned_file:
         labels_writer = csv.writer(labels_file)
         while len(data) > write_idx:
             img = data[write_idx][0]
@@ -222,8 +222,8 @@ def writer_thread():
             im.save(render_dir + '/' + str(write_idx) + '.png')
             labels_writer.writerow(list(SE_tello_NED[0]) + list(SE_tello_NED[1]) + list(SE_tello_NED[2]))
             # files for vizualisation
-            x, y, z, pitch, roll, yaw, pad = data[write_idx][4]
-            gt_file.write("%f %f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw, pad))
+            x, y, z, pitch, roll, yaw = data[write_idx][4]
+            gt_file.write("%f %f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw))
             if write_idx >= 1:
                 predicted = data[write_idx][2]
                 pred_file.write("%f %f %f %f %f %f\n"
@@ -232,14 +232,14 @@ def writer_thread():
             planned_file.write("%f %f %f\n" % (planned[write_idx][0],
                                                planned[write_idx][1],
                                                planned[write_idx][2]))
-            
+
             write_idx = write_idx + 1
         patch_pose_VO_writer = csv.writer(patch_pose_VO_file)
         SE_patch_NED = data[0][2]
         patch_pose_VO_writer.writerow(list(SE_patch_NED[0]) + list(SE_patch_NED[1]) + list(SE_patch_NED[2]))
 
-        
-        
+
+
 
 
 # last is False as last recording which is the first in this case have not done yet
