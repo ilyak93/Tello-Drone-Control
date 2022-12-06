@@ -356,7 +356,7 @@ while True:
     #    if point3D[0] < projected_point3D[0] else first_alpha - alpha_deg
     cur_rotation = int(round(alpha_deg))
 
-    planned.append((round(x_move), round(y_move), round(z_move)))
+    planned.append((round(x_move), -round(y_move), round(z_move)))
 
     ready.wait()
 
