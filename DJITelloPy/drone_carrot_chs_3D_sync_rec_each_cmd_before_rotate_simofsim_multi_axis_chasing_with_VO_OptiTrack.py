@@ -222,8 +222,9 @@ def writer_thread():
             im.save(render_dir + '/' + str(write_idx) + '.png')
             labels_writer.writerow(list(SE_tello_NED[0]) + list(SE_tello_NED[1]) + list(SE_tello_NED[2]))
             # files for vizualisation
-            x, y, z, pitch, roll, yaw = data[write_idx][4]
-            gt_file.write("%f %f %f %f %f %f %d\n" % (x, y, z, pitch, roll, yaw))
+            x, y, z, pitch, roll, yaw = data[write_idx][3]
+            gt_file.write("%f %f %f %f %f %f\n" % (x, y, z, pitch, roll, yaw))
+
             if write_idx >= 1:
                 predicted = data[write_idx][2]
                 pred_file.write("%f %f %f %f %f %f\n"
@@ -234,6 +235,8 @@ def writer_thread():
                                                planned[write_idx][2]))
 
             write_idx = write_idx + 1
+
+
         patch_pose_VO_writer = csv.writer(patch_pose_VO_file)
         SE_patch_NED = data[0][2]
         patch_pose_VO_writer.writerow(list(SE_patch_NED[0]) + list(SE_patch_NED[1]) + list(SE_patch_NED[2]))
@@ -292,7 +295,7 @@ def recorder_thread(reader):
         #                            state["pitch"], state["roll"],
         #                            state["yaw"], state['mid']), VO_motions, [x_move, y_move, 0]])
         data.append([cur_fram, SE_telo_NED, VO_motions,
-                     [90],  # TODO: 90 or [R,0]  should be recalculated and correctly written
+                     # TODO: 90 or [R,0]  should be recalculated and correctly written
                      np.array([cur_pose[0], cur_pose[1], cur_pose[2],
                                ptch, rol, yw])])
 
@@ -353,14 +356,14 @@ while True:
     #    if point3D[0] < projected_point3D[0] else first_alpha - alpha_deg
     cur_rotation = int(round(alpha_deg))
 
+    planned.append((round(x_move), round(y_move), round(z_move)))
+
     ready.wait()
 
     if distance.euclidean(cur_poz[:2], target_pos[:2]) <= target_radius or \
             cur_poz[0] > x_stop:
         response.set()
         break
-
-    planned.append((round(x_move), round(y_move), round(z_move)))
 
     tello.go_xyz_speed(x=int(round(x_move)), y=-int(round(y_move)),
                        z=int(round(z_move)), speed=50)
