@@ -30,9 +30,9 @@ pose_planned = os.path.join(viz_dir, 'pose_planned.txt')
 with open(pose_GT, 'r') as gt_file, \
         open(pose_pred, 'r') as pred_file, \
         open(pose_planned, 'r') as planned_file, \
-        open(viz_dir+'/'+'corrected_pose_GT.txt', 'w+') as corrected_gt_file, \
-        open(viz_dir+'/'+'corrected_pose_pred.txt', 'w+') as corrected_pred_file, \
-        open(viz_dir+'/'+'corrected_pose_planned.txt', 'w+') as corrected_planned_file:
+        open(viz_dir+'/'+'corrected_pose_GT.txt', 'w') as corrected_gt_file, \
+        open(viz_dir+'/'+'corrected_pose_pred.txt', 'w') as corrected_pred_file, \
+        open(viz_dir+'/'+'corrected_pose_planned.txt', 'w') as corrected_planned_file:
     GT_lines = [line.rstrip() for line in gt_file]
     pred_lines = [line.rstrip() for line in pred_file]
     prev_GT = GT_lines[0].split()
@@ -129,7 +129,7 @@ for i, xy in enumerate(zip(y_planned, x_planned)):
    plt.annotate('%d' % i, xy=xy)
 plt.title("Groudtruth locations, Visual Odometry estimations and planned navigation")
 plt.xlim([-100, 100])
-plt.ylim([-600, -300])
+plt.ylim([-600, 100])
 plt.xlabel("Y(cm)")
 plt.ylabel("X(cm)")
 
