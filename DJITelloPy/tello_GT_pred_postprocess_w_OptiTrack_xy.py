@@ -105,11 +105,11 @@ x_GT = np.array([pt[0] for pt in points_GT])
 y_GT = np.array([pt[1] for pt in points_GT])
 
 x_pred_l = [pt[0] for pt in points_pred]
-x_pred_l.insert(0, x_GT[0])
+
 x_pred = np.array(x_pred_l)
 
 y_pred_l = [pt[1] for pt in points_pred]
-y_pred_l.insert(0, y_GT[0])
+
 y_pred = np.array(y_pred_l)
 
 x_planned= [pt[0] for pt in points_planned[:-1]]
@@ -118,6 +118,8 @@ y_planned = [pt[1] for pt in points_planned[:-1]]
 
 
 # Plotting the Graph
+plt.rcParams["figure.figsize"] = [3*6.4,3*6.4]
+plt.rcParams['font.size'] = 10
 plt.plot(y_GT, x_GT, marker='o', color='b')
 for i, xy in enumerate(zip(y_GT, x_GT)):
    plt.annotate('%d' % i, xy=xy)
@@ -127,13 +129,17 @@ for i, xy in enumerate(zip(y_pred, x_pred)):
 plt.scatter(y_planned, x_planned, marker='v', color='g')
 for i, xy in enumerate(zip(y_planned, x_planned)):
    plt.annotate('%d' % i, xy=xy)
-plt.title("Groudtruth locations, Visual Odometry estimations and planned navigation")
-plt.xlim([-100, 100])
+plt.title("Groudtruth locations, Visual Odometry estimations and planned"
+          " navigation", fontsize=20)
+plt.xlim([-50, 50])
+plt.xticks(list(range(-50, 50, 5)))
 plt.ylim([-600, 100])
+plt.yticks(list(range(-600, 100, 25)))
+
 plt.xlabel("Y(cm)")
 plt.ylabel("X(cm)")
 
-
+plt.tick_params(axis='both', which='major', labelsize=18)
 
 plt.show()
 

@@ -118,6 +118,8 @@ z_planned = [pt[1] for pt in points_planned[:-1]]
 
 
 # Plotting the Graph
+plt.rcParams["figure.figsize"] = [3*6.4,3*6.4]
+plt.rcParams['font.size'] = 10
 plt.plot(x_GT, z_GT, marker='o', color='b')
 for i, xz in enumerate(zip(x_GT, z_GT)):
    plt.annotate('%d' % i, xy=xz)
@@ -127,13 +129,16 @@ for i, xz in enumerate(zip(x_pred, z_pred)):
 plt.scatter(x_planned, z_planned, marker='v', color='g')
 for i, xz in enumerate(zip(x_planned, z_planned)):
    plt.annotate('%d' % i, xy=xz)
-plt.title("Groudtruth locations, Visual Odometry estimations and planned navigation")
+plt.title("Groudtruth locations, Visual Odometry estimations and planned"
+          " navigation", fontsize=25)
 plt.xlim([-600, 100])
+plt.xticks(list(range(-600, 100, 25)))
 plt.ylim([120, 200])
+plt.yticks(list(range(120, 200, 5)))
 plt.xlabel("X(cm)")
 plt.ylabel("Z(cm)")
 
-
+plt.tick_params(axis='both', which='major', labelsize=15)
 
 plt.show()
 
