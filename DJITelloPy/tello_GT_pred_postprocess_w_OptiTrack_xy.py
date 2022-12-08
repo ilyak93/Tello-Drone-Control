@@ -5,8 +5,8 @@ import os
 
 # Rescaling as it is done in TartanVO as the final step if sample has "motion" key, i.e label
 def rescale(xyz_GT, xyz_pred):
-    scale = np.linalg.norm(xyz_GT[:2])
-    return xyz_pred / np.linalg.norm(xyz_pred[:2]) * scale
+    scale = np.linalg.norm(xyz_GT)
+    return xyz_pred / np.linalg.norm(xyz_pred) * scale
 
 
 # calculates the translations from the poses and the pads and also rescales the predictions according to the
@@ -125,16 +125,16 @@ for i, xy in enumerate(zip(y_GT, x_GT)):
    plt.annotate('%d' % i, xy=xy)
 plt.plot(y_pred, x_pred, linestyle="--", marker='x', color='r')
 for i, xy in enumerate(zip(y_pred, x_pred)):
-   plt.annotate('%d' % i, xy=xy)
+   plt.annotate('%d' % (i+1), xy=xy)
 plt.scatter(y_planned, x_planned, marker='v', color='g')
 for i, xy in enumerate(zip(y_planned, x_planned)):
    plt.annotate('%d' % i, xy=xy)
 plt.title("Groudtruth locations, Visual Odometry estimations and planned"
           " navigation", fontsize=20)
-plt.xlim([-50, 50])
-plt.xticks(list(range(-50, 50, 5)))
-plt.ylim([-600, 100])
-plt.yticks(list(range(-600, 100, 25)))
+plt.xlim([-50, 100])
+plt.xticks(list(range(-100, 50, 5)))
+plt.ylim([-800, -100])
+plt.yticks(list(range(-800, -100, 25)))
 
 plt.xlabel("Y(cm)")
 plt.ylabel("X(cm)")

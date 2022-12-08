@@ -5,8 +5,8 @@ import os
 
 # Rescaling as it is done in TartanVO as the final step if sample has "motion" key, i.e label
 def rescale(xyz_GT, xyz_pred):
-    scale = np.linalg.norm(xyz_GT[:2])
-    return xyz_pred / np.linalg.norm(xyz_pred[:2]) * scale
+    scale = np.linalg.norm(xyz_GT)
+    return xyz_pred / np.linalg.norm(xyz_pred) * scale
 
 
 # calculates the translations from the poses and the pads and also rescales the predictions according to the
@@ -105,11 +105,11 @@ x_GT = np.array([pt[0] for pt in points_GT])
 z_GT = np.array([pt[1] for pt in points_GT])
 
 x_pred_l = [pt[0] for pt in points_pred]
-x_pred_l.insert(0, x_GT[0])
+
 x_pred = np.array(x_pred_l)
 
 z_pred_l = [pt[1] for pt in points_pred]
-z_pred_l.insert(0, z_GT[0])
+
 z_pred = np.array(z_pred_l)
 
 x_planned = [pt[0] for pt in points_planned[:-1]]
@@ -125,16 +125,16 @@ for i, xz in enumerate(zip(x_GT, z_GT)):
    plt.annotate('%d' % i, xy=xz)
 plt.plot(x_pred, z_pred, linestyle="--", marker='x', color='r')
 for i, xz in enumerate(zip(x_pred, z_pred)):
-   plt.annotate('%d' % i, xy=xz)
+   plt.annotate('%d' % (i+1), xy=xz)
 plt.scatter(x_planned, z_planned, marker='v', color='g')
 for i, xz in enumerate(zip(x_planned, z_planned)):
    plt.annotate('%d' % i, xy=xz)
 plt.title("Groudtruth locations, Visual Odometry estimations and planned"
           " navigation", fontsize=25)
-plt.xlim([-600, 100])
-plt.xticks(list(range(-600, 100, 25)))
-plt.ylim([120, 200])
-plt.yticks(list(range(120, 200, 5)))
+plt.xlim([-800, -100])
+plt.xticks(list(range(-800, -100, 25)))
+plt.ylim([50, 230])
+plt.yticks(list(range(50, 230, 5)))
 plt.xlabel("X(cm)")
 plt.ylabel("Z(cm)")
 
