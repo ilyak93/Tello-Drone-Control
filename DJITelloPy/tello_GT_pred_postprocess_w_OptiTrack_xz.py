@@ -50,7 +50,7 @@ with open(pose_GT, 'r') as gt_file, \
                                     float(cur_planned[0]),
                                     float(cur_planned[2])))
 
-    for i in range(1, len(GT_lines) - 1):
+    for i in range(1, len(GT_lines)):
         # calculate translation: y positive is from the left of the pad, more intuitive to align to VO where it is to
         # the right
 
@@ -101,6 +101,14 @@ import matplotlib.pyplot as plt
 
 # Dataset
 
+_, x_start, _, z_start, target_x, _, target_z, x_stop, \
+    = np.load("alpha_start_pos_target_pos_x_stop.npy")
+
+chasing_x_points = [x_start, target_x]
+chasing_z_points = [z_start, target_z]
+
+chasing_stop_plane = x_stop
+
 x_GT = np.array([pt[0] for pt in points_GT])
 z_GT = np.array([pt[1] for pt in points_GT])
 
@@ -129,16 +137,21 @@ for i, xz in enumerate(zip(x_pred, z_pred)):
 plt.scatter(x_planned, z_planned, marker='v', color='g')
 for i, xz in enumerate(zip(x_planned, z_planned)):
    plt.annotate('%d' % i, xy=xz)
+
+plt.plot(chasing_x_points, chasing_z_points, linestyle="--", marker='p',
+         color='k')
+plt.axvline(x=x_stop, color='k', linestyle='--')
+
 plt.title("Groudtruth locations, Visual Odometry estimations and planned"
           " navigation", fontsize=25)
-plt.xlim([-800, -100])
-plt.xticks(list(range(-800, -100, 25)))
-plt.ylim([50, 230])
-plt.yticks(list(range(50, 230, 5)))
+plt.xlim([-800, 300])
+plt.xticks(list(range(-800, 300, 25)))
+plt.ylim([50, 275])
+plt.yticks(list(range(50, 275, 5)))
 plt.xlabel("X(cm)")
 plt.ylabel("Z(cm)")
 
-plt.tick_params(axis='both', which='major', labelsize=15)
+plt.tick_params(axis='both', which='major', labelsize=12)
 
 plt.show()
 
