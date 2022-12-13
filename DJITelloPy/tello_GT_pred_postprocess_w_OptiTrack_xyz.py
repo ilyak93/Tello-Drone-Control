@@ -2,6 +2,9 @@ import math
 
 import numpy as np
 import os
+import pyvista as pv
+import open3d
+from mpl_toolkits.mplot3d import Axes3D
 
 
 # Rescaling as it is done in TartanVO as the final step if sample has "motion" key, i.e label
@@ -134,8 +137,12 @@ z_planned = [pt[2] for pt in points_planned[:-1]]
 
 # Plotting the Graph
 ax = plt.figure().add_subplot(projection='3d')
-plt.rcParams["figure.figsize"] = [3 * 6.4, 3 * 6.4]
-plt.rcParams['font.size'] = 10
+
+scale_x, scale_y, scale_z = 1, 2, 1
+ax.get_proj = lambda: np.dot(Axes3D.get_proj(ax), np.diag([scale_x, scale_y, scale_z, 1]))
+
+#plt.rcParams["figure.figsize"] = [6* 6.4, 6 * 6.4]
+#plt.rcParams['font.size'] = 5
 ax.plot(y_GT, x_GT, z_GT, marker='o', color='b')
 zdirs = [None] * len(x_GT)
 for i, (zdir, x, y, z) in enumerate(zip(zdirs, x_GT, y_GT, z_GT)):
@@ -164,13 +171,70 @@ ax.set_yticks(list(range(-800, 300, 25)))
 ax.set_zlim([50, 275])
 ax.set_zticks(list(range(50, 275, 5)))
 '''
-ax.set_xlabel("X(cm)")
-ax.set_ylabel("Y(cm)")
+ax.set_ylabel("X(cm)")
+ax.set_xlabel("Y(cm)")
 ax.set_zlabel("Z(cm)")
 
 #ax.tick_params(axis='both', which='major', labelsize=10)
 
 plt.show()
+'''
+points_list_GT = [[x,y,z] for (x, y, z) in zip(x_GT, y_GT, z_GT)]
+indices_list = [[i,i+1] for i in range(len(points_list_GT)-1)]
+indices = open3d.utility.Vector2iVector(indices_list)
+points = open3d.utility.Vector3dVector(np.array(points_list_GT))
+lineset_GT = open3d.geometry.LineSet(points,indices)
+lineset_GT.paint_uniform_color([0,0,255])
+
+points_list_planned = [[x,y,z] for (x, y, z) in zip(x_planned, y_planned, z_planned)]
+indices_list = [[i,i+1] for i in range(len(points_list_planned)-1)]
+indices = open3d.utility.Vector2iVector(indices_list)
+points = open3d.utility.Vector3dVector(np.array(points_list_planned))
+lineset_planned = open3d.geometry.LineSet(points,indices)
+lineset_planned.paint_uniform_color([0,255,0])
+
+points_list_pred = [[x,y,z] for (x, y, z) in zip(x_pred, y_pred, z_pred)]
+indices_list = [[i,i+1] for i in range(len(points_list_pred)-1)]
+indices = open3d.utility.Vector2iVector(indices_list)
+points = open3d.utility.Vector3dVector(np.array(points_list_pred))
+lineset_pred = open3d.geometry.LineSet(points,indices)
+lineset_pred.paint_uniform_color([255,0,0])
+
+open3d.visualization.draw_geometries([lineset_GT, lineset_planned,  lineset_pred])
+'''
+
+'''
+def lines_from_points(points):
+    """Given an array of points, make a line set"""
+    poly = pv.PolyData()
+    poly.points = points
+    cells = np.full((len(points) - 1, 3), 2, dtype=np.int_)
+    cells[:, 1] = np.arange(0, len(points) - 1, dtype=np.int_)
+    cells[:, 2] = np.arange(1, len(points), dtype=np.int_)
+    poly.lines = cells
+    return poly
+
+
+line = lines_from_points(np.array(points_list_GT))
+
+line["scalars"] = np.arange(line.n_points)
+tube = line.tube(radius=0.1)
+tube.plot(smooth_shading=True)
+'''
+
+points_list_GT = [[x,y,z] for (x, y, z) in zip(x_GT, y_GT, z_GT)]
+points_list_planned = [[x,y,z] for (x, y, z) in zip(x_planned, y_planned, z_planned)]
+points_list_pred = [[x,y,z] for (x, y, z) in zip(x_pred, y_pred, z_pred)]
+
+plotter = pv.Plotter()
+mesh_GT = pv.MultipleLines(points=np.array(points_list_GT))
+mesh_pred = pv.MultipleLines(points=np.array(points_list_pred))
+mesh_planned = pv.MultipleLines(points=np.array(points_list_planned))
+plotter.add_mesh(mesh_GT, color='b')
+plotter.add_mesh(mesh_pred, color='r')
+plotter.add_mesh(mesh_planned, color='g')
+plotter.show_bounds(all_edges=True)
+plotter.show()
 
 import matplotlib.pyplot as plt
 
