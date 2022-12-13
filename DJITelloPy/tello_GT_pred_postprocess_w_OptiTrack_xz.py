@@ -83,8 +83,8 @@ with open(pose_GT, 'r') as gt_file, \
 
         # rescale and save
         pred = pred_lines[i - 1].split()
-        xyz_pred = np.array([float(pred[0]), float(pred[1]), float(pred[2])])
-        scaled_x, scaled_z, scaled_y = rescale(np.array([x_trans, z_trans, y_trans]), xyz_pred)
+        xzy_pred = np.array([float(pred[0]), float(pred[2]), float(pred[1])])
+        scaled_x, scaled_z, scaled_y = rescale(np.array([x_trans, z_trans, y_trans]), xzy_pred)
         cur_pred = [sum(x) for x in zip(cur_pred, (scaled_x, scaled_z))]
         points_pred.append(cur_pred)
 
@@ -147,7 +147,7 @@ plt.title("Groudtruth locations, Visual Odometry estimations and planned"
 plt.xlim([-800, 300])
 plt.xticks(list(range(-800, 300, 25)))
 plt.ylim([50, 275])
-plt.yticks(list(range(50, 275, 5)))
+plt.yticks(list(range(0, 275, 5)))
 plt.xlabel("X(cm)")
 plt.ylabel("Z(cm)")
 
