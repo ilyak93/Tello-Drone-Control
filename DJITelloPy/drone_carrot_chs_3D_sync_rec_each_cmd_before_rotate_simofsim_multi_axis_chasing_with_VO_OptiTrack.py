@@ -30,7 +30,7 @@ first_alpha_loaded, x, y, z, target_x, target_y, target_z, x_stop, \
     = np.load("alpha_start_pos_target_pos_x_stop.npy")
 
 delta_lookahead = 100
-R = 25
+R = 50
 
 np.random.seed(SEED)
 render_dir = os.path.join(BASE_RENDER_DIR, str(SEED))
@@ -140,7 +140,7 @@ curr_state = telloState(streamingClient)
 SE_motive = curr_state[-1]  # in Y UP system
 
 initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
-initial_x_before, initial_y_before = -initial_x, -initial_y
+initial_x_before, initial_y_before = initial_x, initial_y
 
 # (x, y, z, pitch, roll, yaw) : (cm, cm, cm, deg, deg, deg)
 
@@ -170,7 +170,7 @@ euler = Rot.from_matrix(SE_tello_NED_to_navigate[0:3, 0:3]).as_euler('zyx', degr
 euler = euler / np.pi * 180.
 (roll, pitch, yaw) = np.flip(euler)
 initial_x, initial_z, initial_y = SE_motive[0:3, 3] * m_to_cm
-initial_x, initial_y = -initial_x, -initial_y
+initial_x, initial_y = initial_x, initial_y
 
 cur_p = initial_x, initial_y, initial_z
 
@@ -239,7 +239,9 @@ def writer_thread():
 
         patch_pose_VO_writer = csv.writer(patch_pose_VO_file)
         SE_patch_NED = data[0][2]
-        patch_pose_VO_writer.writerow(list(SE_patch_NED[0]) + list(SE_patch_NED[1]) + list(SE_patch_NED[2]))
+        patch_pose_VO_writer.writerow(list(SE_patch_NED[0]) +
+                                      list(SE_patch_NED[1]) +
+                                      list(SE_patch_NED[2]))
 
 
 
@@ -266,13 +268,14 @@ def recorder_thread(reader):
         SE_telo_NED = SE_motive2telloNED(SE_motiv, T_w_b0_inv)
 
         SE_tello_NED_to_navigat = SE_motive2telloNED(SE_motiv, initial_rotation_view)
-        eulr = Rot.from_matrix(SE_tello_NED_to_navigat[0:3, 0:3]).as_euler('zyx', degrees=False)
+        eulr = Rot.from_matrix(
+            SE_tello_NED_to_navigat[0:3, 0:3]).as_euler('zyx', degrees=False)
         eulr = eulr / np.pi * 180.
         (rol, ptch, yw) = np.flip(eulr)
 
         x, z, y = opti_state[2][0:3, 3] * m_to_cm
 
-        cur_pose = (-x, -y, z)
+        cur_pose = (x, y, z)
 
         print("x,y,z,pitch,roll,yaw after movement are + " + str([cur_pose[0],
                                                                   cur_pose[1],
