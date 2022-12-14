@@ -4,15 +4,17 @@ import cv2
 import numpy as np
 import pickle
 # https://stackoverflow.com/questions/50928743/matplotlib-animation-not-displaying-in-pycharm/50929022
-import matplotlib; matplotlib.use("TkAgg")
+import matplotlib;
+
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from time import time, sleep
 import os
 import csv
 import shutil
+import re
 
-
-#https://learnopencv.com/augmented-reality-using-aruco-markers-in-opencv-c-python/
+# https://learnopencv.com/augmented-reality-using-aruco-markers-in-opencv-c-python/
 
 ARUCO_DICT = {
     "DICT_4X4_50": cv2.aruco.DICT_4X4_50,
@@ -28,13 +30,12 @@ ARUCO_DICT = {
 
 aruco_type = "DICT_4X4_50"  # The actual we use.
 
-
-cam_calib_fname =  'tello_640_448_calib_djitellopy.p'  # pickle calibration file in OpenCV format.
+cam_calib_fname = 'tello_640_448_calib_djitellopy.p'  # pickle calibration file in OpenCV format.
 test_fname = sys.argv[1]
-#test_fname = 'C:/Users/vista/Desktop/OL_speed_60_160522_big_target/8'
-target_im_to_project = 'C:/Users/vista/Desktop/DJI_Album/OL_trajs_speed_50_processed/adv_best_pert_250422.png'
+# test_fname = '/home/vista/Desktop/3D_trajectories/dataset/OL_trajs_images_R25_btt_center_1/54'
+target_im_to_project = '/home/vista/ilya_tello_test/trajs_3D/projected.png'
 output_dir = sys.argv[2]
-#output_dir = 'C:/Users/vista/Desktop/8/'
+# output_dir = 'C:/Users/vista/Desktop/8/'
 coords_filename = 'mask_coords.csv'
 GT_pose_filename = 'pose_file.csv'
 patch_pose_VO_filename = 'patch_pose_VO.csv'
@@ -43,13 +44,18 @@ img_suffix = 'png'
 IS_VIDEO = False  # if False - an image sequence assumed.
 UNDISTORT = False  # Usually False, as it doesn't work well / not needed
 PROJECT_IM = False  # more for debug - project an image on the mask
-SAVE_MASKS = True   # save also the patch mask frames
-SAVE_I0_I1 = True   # Save the frames with dark and bright patches
+SAVE_MASKS = True  # save also the patch mask frames
+SAVE_I0_I1 = True  # Save the frames with dark and bright patches
 MASK_BY_CENTERS = False  # else, by external corners
 CROP_AROUND_CENTER = False  # else, resize the image
 CALC_PATCH_MASK_BY_VECTORS = False  # experimental, doesn't work for 2D case in general perspective trasformation, and 3D case requires the camera poses.
 PATCH_SCALE = 2.  # Relevant if CALC_PATCH_MASK_BY_VECTORS == True
 OUTPUT_FRAMES_SIZE = (640, 448)  # frames either cropped or resized to this
+
+
+def sorted_indices(string_list):
+    return np.argsort([int(string.split('/')[-1].split('.')[0]) for string in string_list])
+
 
 class Viewer:
     def __init__(self):
@@ -62,7 +68,10 @@ class Viewer:
         if IS_VIDEO:
             self.cap = cv2.VideoCapture(test_fname)
         else:
-            self.image_list = sorted([os.path.join(test_fname, o) for o in os.listdir(test_fname) if o.endswith(img_suffix)])
+            self.image_list = [os.path.join(test_fname, o) for o in os.listdir(test_fname) if o.endswith(img_suffix)]
+            indices = sorted_indices(self.image_list)
+            self.image_list = [self.image_list[i] for i in indices]
+            print(self.image_list)
         sleep(1.)  # warm up
         self.rvec = None
         self.tvec = None
@@ -72,10 +81,10 @@ class Viewer:
         self.w = None
         self.h = None
         Viewer.set_calibration(self)
-        Viewer.fix_distortion(self)
-        #Viewer.set_camera_extrinsics(self)
+
+        # Viewer.set_camera_extrinsics(self)
         # Calculate the projection matrix:
-        #self.projection_mtx = Viewer.projection_matrix(self)
+        # self.projection_mtx = Viewer.projection_matrix(self)
 
     def detect_aruco_markers(self, frame, debug=False):
         # Assumed topleft->clockwise order, and corresponding 4 Aruco IDs in the images: [1, 0, 2, 3]
@@ -88,8 +97,8 @@ class Viewer:
         # detect ArUco markers in the input frame
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         (corners, ids, rejected) = cv2.aruco.detectMarkers(
-                                                            gray, arucoDict, parameters=arucoParams,
-                                                            cameraMatrix=self.K, distCoeff=self.dist_coeffs)
+            gray, arucoDict, parameters=arucoParams,
+            cameraMatrix=self.K, distCoeff=self.dist_coeffs)
         # verify *at least* one ArUco marker was detected
         if len(corners) > 0 and debug:
             cv2.aruco.drawDetectedMarkers(frame, corners)  # Draw A square around the markers
@@ -121,7 +130,7 @@ class Viewer:
                         cX, cY = int(bottomLeft[0]), int(bottomLeft[1])
 
                 ret_corners[id_pos_str] = (cX, cY)
-                #frame[cY, cX, 1] = 255
+                # frame[cY, cX, 1] = 255
 
                 if debug:
                     # draw the ArUco marker ID on the frame
@@ -133,8 +142,7 @@ class Viewer:
                     cv2.imshow("", frame)
                     key = cv2.waitKey(1) & 0xFF
             # Return the 4 corners in the order: topleft -> clockwise
-
-        #cv2.imshow("",frame)
+        # cv2.imshow("",frame)
         return ret_corners
 
     def grab_frame(self):
@@ -181,7 +189,7 @@ class Viewer:
     def fix_distortion(self, alpha=0):
         """Calculates modified intrinsics and ROI for cropping image after undistortion"""
         self.K_new, self.roi = cv2.getOptimalNewCameraMatrix(
-                                    self.K, self.dist_coeffs, (self.w, self.h), alpha, (self.w, self.h))
+            self.K, self.dist_coeffs, (self.w, self.h), alpha, (self.w, self.h))
 
     def undistort_image(self, img, crop=False):
         """Applies undistortion to an image, plus cropping to avoid black padding"""
@@ -191,9 +199,9 @@ class Viewer:
         else:
             dst = cv2.undistort(img, self.K, self.dist_coeffs, None, self.K_new)
             if crop:
-            # crop the image
+                # crop the image
                 x, y, w, h = self.roi
-                return dst[y:y+h, x:x+w]
+                return dst[y:y + h, x:x + w]
         return dst
 
     def close(self):
@@ -202,7 +210,8 @@ class Viewer:
             self.cap.release()
         cv2.destroyAllWindows()
 
-    def calc_3d_rect_from_3_3d_points(self, center_3d, bottom_center_3d, bottom_right_3d, w, h, markers_dist_from_plane=0):
+    def calc_3d_rect_from_3_3d_points(self, center_3d, bottom_center_3d, bottom_right_3d, w, h,
+                                      markers_dist_from_plane=0):
         # Assumptions: 3 points not co-linear. Our rectangle origin is the bottom_right_3d point.
         # v1 is from it to bottom_center, v2 is from bottom_center_right to center.
         # v1 is used as the horizontal vector, v3 as the vertical.
@@ -225,7 +234,7 @@ class Viewer:
         bl = br + v1 * w
         tr = br + v3 * h
         tl = tr + v1 * w
-        return np.array([tl, tr, br, bl]) - n*markers_dist_from_plane
+        return np.array([tl, tr, br, bl]) - n * markers_dist_from_plane
 
     def calc_2d_rect_from_4_2d_points(self, p1, p2, p3, p4, s_factor=1.):
         # Assumed p1 -> tr, p2 -> bl, p3 -> br, p4 -> tl
@@ -234,16 +243,16 @@ class Viewer:
         p3 = np.array(p3, dtype=np.float64)
         p3 = np.array(p3, dtype=np.float64)
         v1 = p1 - p3
-        n_v1 = 1. #np.linalg.norm(v1)
+        n_v1 = 1.  # np.linalg.norm(v1)
         v1 /= n_v1
         v2 = p2 - p3
-        n_v2 = 1. #np.linalg.norm(v2)
+        n_v2 = 1.  # np.linalg.norm(v2)
         v2 /= n_v2
         v3 = p4 - p3
-        n_v3 = 1. # np.linalg.norm(v3)
+        n_v3 = 1.  # np.linalg.norm(v3)
         v3 /= n_v3
 
-        br = p3 #- v2 * n_v2 * h_factor/2
+        br = p3  # - v2 * n_v2 * h_factor/2
         bl = br + v1 * n_v1 * s_factor
         tr = br + v2 * n_v2 * s_factor
         tl = br + v3 * n_v3 * s_factor
@@ -265,7 +274,6 @@ h_t, w_t = target_im.shape[:2]
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
-
 # copy patch_pose_VO as is:
 src_patch_pose_VO_filename = os.path.join(test_fname, patch_pose_VO_filename)
 dst_patch_pose_VO_filename = os.path.join(output_dir, patch_pose_VO_filename)
@@ -278,7 +286,6 @@ src_gt_pose_file = open(src_gt_pose_filename, 'r', newline='')
 gt_pose_file = open(gt_pose_filename, 'w', newline='')
 src_gt_pose_reader = csv.reader(src_gt_pose_file)
 gt_pose_writer = csv.writer(gt_pose_file)
-
 
 # init mask_coords file. coords order:  bl->br->tl->tr
 coords_filename = os.path.join(output_dir, coords_filename)
@@ -321,6 +328,7 @@ while idx < len(viewer.image_list):
 
     viewer.h, viewer.w = h, w
     # frame = add_transparent_overlay(frame, grid_image, alpha=0.4)
+    Viewer.fix_distortion(viewer)
 
     # Regardless of detection success, we iterate over the original pose file:
     pos_row = next(src_gt_pose_reader)
@@ -333,12 +341,12 @@ while idx < len(viewer.image_list):
             hsl = cv2.cvtColor(frame, cv2.COLOR_BGR2HLS)
             Lchannel = hsl[:, :, 1]
 
-            #Lmask = cv2.inRange(Lchannel, 200, 255)
-            #dark_mask = cv2.inRange(Lchannel, 0, 60)
-            #res = cv2.bitwise_and(frame, frame, mask=dark_mask)
-            #cv2.namedWindow("Lchannel", cv2.WINDOW_NORMAL)
-            #cv2.imshow("Lchannel", Lchannel)
-            pts_src = np.array([[0, 0], [w_t-1, 0], [w_t-1, h_t-1], [0, h_t-1]], dtype=np.int32)
+            # Lmask = cv2.inRange(Lchannel, 200, 255)
+            # dark_mask = cv2.inRange(Lchannel, 0, 60)
+            # res = cv2.bitwise_and(frame, frame, mask=dark_mask)
+            # cv2.namedWindow("Lchannel", cv2.WINDOW_NORMAL)
+            # cv2.imshow("Lchannel", Lchannel)
+            pts_src = np.array([[0, 0], [w_t - 1, 0], [w_t - 1, h_t - 1], [0, h_t - 1]], dtype=np.int32)
 
             if CALC_PATCH_MASK_BY_VECTORS:
                 pts_dst = viewer.calc_2d_rect_from_4_2d_points(corners['bottomleft'], corners['topright'],
@@ -346,12 +354,12 @@ while idx < len(viewer.image_list):
             else:
                 pts_dst = np.zeros((4, 2), dtype=np.int32)
                 pts_dst[0, :], pts_dst[1, :], pts_dst[2, :], pts_dst[3, :] = \
-                                    corners['topleft'], corners['topright'], corners['bottomright'], corners['bottomleft']
+                    corners['topleft'], corners['topright'], corners['bottomright'], corners['bottomleft']
 
             cv2.namedWindow("debug", cv2.WINDOW_NORMAL)
             frame2 = frame.copy()
             for i in range(4):
-                frame2 = cv2.circle(frame2, pts_dst[i], 3, (255,0,255))
+                frame2 = cv2.circle(frame2, pts_dst[i], 3, (255, 0, 255))
             cv2.imshow("debug", frame2)
 
             # Order: bl->br->tl->tr
@@ -402,10 +410,10 @@ while idx < len(viewer.image_list):
 
             bright_vals = roi[roi > ret2]
             ret4, th4 = cv2.threshold(bright_vals, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            #bright_vals = bright_vals[bright_vals > ret4]
+            # bright_vals = bright_vals[bright_vals > ret4]
 
             curr_black = dark_vals.mean()  # dark_vals.min()
-            curr_white = bright_vals.mean()  # bright_vals.max()
+            curr_white = bright_vals.mean() if len(bright_vals) > 0 else min(curr_black + 125, 255)# bright_vals.max() #TODO fix this bug when bright_vals is empty list
 
             # Normalize the target image to 0-1:
             target_im = (target_im - target_im.min()) / (target_im.max() - target_im.min())
@@ -435,7 +443,7 @@ while idx < len(viewer.image_list):
             if SAVE_I0_I1:
                 I0_out = np.zeros_like(frame_masked)
                 I1_out = I0_out.copy()
-                I0_out[mask3 > 0 ] = curr_black
+                I0_out[mask3 > 0] = curr_black
                 I1_out[mask3 > 0] = curr_white
                 I0_out = cv2.add(I0_out, frame_masked)
                 I1_out = cv2.add(I1_out, frame_masked)
@@ -446,9 +454,9 @@ while idx < len(viewer.image_list):
                 im_out = frame.copy()
 
             cv2.namedWindow("Arena", cv2.WINDOW_NORMAL)
-            cv2.imshow("Arena", im_out/255)
+            cv2.imshow("Arena", im_out / 255)
             cv2.namedWindow("mask", cv2.WINDOW_NORMAL)
-            cv2.imshow("mask", mask/255)
+            cv2.imshow("mask", mask / 255)
 
             if SAVE_I0_I1:
                 cv2.imwrite(os.path.join(output_dir, 'I0_' + str(idx).zfill(5) + '.png'), I0_out)
@@ -472,3 +480,4 @@ viewer.close()
 src_gt_pose_file.close()
 gt_pose_file.close()
 coords_file.close()
+
