@@ -5,7 +5,6 @@ from tello_with_optitrack.NatNetClient import NatNetClient
 from scipy.spatial.transform import Rotation as R
 
 
-
 def connectOptitrack(body_id_drone1, body_id_patch):
 	timeout_s = 10
 	# This will create a new NatNet client
@@ -75,20 +74,36 @@ def quaternion_to_rotation_matrix(q):
 			[2 * (x * y + w * z), w * w - x * x + y * y - z * z, 2 * (y * z - w * x)],
 			[2 * (x * z - w * y), 2 * (y * z + w * x), w * w - x * x - y * y + z * z]]
 
+
+# Ilya worked in a not NED system which was SWU, for this additional rotation is applied to turn to NEU as Matan worked
+
+rot = [[ -1.0000000,  0.0000000,  0.0000000],
+   [0.0000000, 1.0000000,  0.0000000],
+   [0.0000000,  0.0000000,  -1.0000000 ]]
+
+rot_quat = [ 0, 1, 0, 0 ]
+
 def telloState(streamingClient):
 
 	# Retrieve rigid body data from OptiTrack.
 	id_num = streamingClient.rigidBodyListener[0, 0]
 	pos = streamingClient.rigidBodyListener[0, 1]
-	pos = np.vstack(pos)
+	# pos = np.vstack(pos)
+	rotation_to_NEU = R.from_matrix(rot)
+	rotated_pos = rotation_to_NEU.apply(pos)
+	rotated_pos = np.vstack(rotated_pos)
 	#print('pos = ', pos)
 	
 	quato = streamingClient.rigidBodyListener[0, 2]
-	quat = np.vstack(quato)
+	#quat = np.vstack(quato)
 	#print('quat', quat)
+
+	rotated_quato = rot_quat * quato
+	rotated_quat = np.vstack(rotated_quato)
+
 	# Rotate coordinates to aircraft standard (forward x, right y, down z) from
 	# (forward x, right z, up y).
-	pos_quat = np.concatenate((pos, quat), axis=0).squeeze()
+	pos_quat = np.concatenate((rotated_pos, rotated_quat), axis=0).squeeze()
 	#print('%%%%% pos quat = ', pos_quat)
 	SE_motive = pos_quat2SE(pos_quat)
 	#print('%%% SE = ', SE_motive)
@@ -115,18 +130,18 @@ def telloState(streamingClient):
 	rotated_pos = Cx(-np.pi/2) @ pos
 	rotated_pos = rotated_pos * 100  # change to [cm]
 
-	rotated_quat = ConvertRHSRotYUp2Zdown(quat)
+	rotated_quat = ConvertRHSRotYUp2Zdown(rotated_quat)
 	#print('rotated_quat', rotated_quat)
 	
 	#https://stackoverflow.com/questions/18818102/convert-quaternion-representing-rotation-from-one-coordinate-system-to-another
 
-	M = quaternion2matrix(quat)
+	M = quaternion2matrix(rotated_quat)
 	M_rotated = Cx(-np.pi/2) @ M
 	#euler = rotationMatrix2Euler(M_rotated)
 
 	#print('pos = {} |||| euler_d = {}'.format(pos.squeeze(), euler_motive/np.pi*180.))
 
-	return (id_num, euler_motive, np.array(SE_motive))
+	return id_num, euler_motive, np.array(SE_motive)
 
 
 def patchState(streamingClient):
