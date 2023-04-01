@@ -3,8 +3,6 @@ import math
 import numpy as np
 import os
 
-from TartanVO.Datasets.transformation import ses2poses_quat, pos_quats2SE_matrices, motion2pose
-
 
 # Rescaling as it is done in TartanVO as the final step if sample has "motion" key, i.e label
 def rescale(xyz_GT, xyz_pred):
@@ -23,10 +21,10 @@ points_pred = list()
 points_planned = list()
 
 SEED = 54
-BASE_RENDER_DIR = '/home/vista/ilya_tello_test/OL_trajs_images/'
+BASE_RENDER_DIR = 'C:/Users/Ily/Desktop/linkdin/dataset/OL_trajs_images_R25_btt_center_1/'
 render_dir = os.path.join(BASE_RENDER_DIR, str(SEED))
 viz_dir = os.path.join(render_dir, 'viz')
-anim_dir = os.path.join(viz_dir, 'anim')
+anim_dir = os.path.join(viz_dir, 'anim_xy')
 pose_GT = os.path.join(viz_dir, 'pose_GT.txt')
 pose_pred = os.path.join(viz_dir, 'pose_pred.txt')
 pose_planned = os.path.join(viz_dir, 'pose_planned.txt')
@@ -60,7 +58,6 @@ with open(pose_GT, 'r') as gt_file, \
     for i in range(1, len(GT_lines)):
         # calculate translation: y positive is from the left of the pad, more intuitive to align to VO where it is to
         # the right
-
         cur_GT = GT_lines[i].split()
         cur_x_GT, cur_y_GT, cur_z_GT = float(cur_GT[0]), float(cur_GT[1]), float(cur_GT[2])
         # x_trans, y_trans, z_trans = 0, 0, 0
@@ -112,8 +109,12 @@ import matplotlib.pyplot as plt
 
 # Dataset
 
-_, x_start, y_start, _, target_x, target_y, _, x_stop, \
-    = np.load("alpha_start_pos_target_pos_x_stop.npy")
+#_, x_start, y_start, _, target_x, target_y, _, x_stop, \
+#    = np.load("alpha_start_pos_target_pos_x_stop.npy")
+x_start, y_start = -700, -2
+target_x, target_y = 600, -2
+x_stop = -100
+
 
 chasing_x_points = [x_start, target_x]
 chasing_y_points = [y_start, target_y]
@@ -136,33 +137,35 @@ y_planned = [pt[1] for pt in points_planned[:-1]]
 
 
 # Plotting the Graph
-plt.rcParams["figure.figsize"] = [3*6.4,3*6.4]
-plt.rcParams['font.size'] = 10
+plt.rcParams["figure.figsize"] = [0.5*6.4, 3*6.4]
+plt.rcParams['font.size'] = 7
 
 plt.plot(chasing_y_points, chasing_x_points, linestyle="--", marker='p', color='k')
 plt.axhline(y=x_stop, color='k', linestyle='--')
 
 plt.title("Groudtruth locations, Visual Odometry estimations and planned"
-          " navigation with chasing axis", fontsize=20)
+          " navigation with chasing axis", fontsize=7)
 
-plt.tick_params(axis='both', which='major', labelsize=10)
+plt.tick_params(axis='both', which='major', labelsize=6)
 
 for i in range(len(x_GT)):
     # Plotting the Graph
     cur_x_GT = x_GT[:i+1]
     cur_y_GT = y_GT[:i+1]
-    plt.plot(cur_y_GT, cur_x_GT, marker='o', color='b')
+    plt.plot(cur_y_GT, cur_x_GT, marker='o', markersize=5, color='b')
     for i, xy in enumerate(zip(cur_y_GT, cur_x_GT)):
        plt.annotate('%d' % i, xy=xy)
     if i > 0:
-        plt.plot(y_pred[i-1], x_pred[i-1], marker='x', color='r')
+        plt.plot(y_pred[i-1], x_pred[i-1], marker='x', markersize=5, color='r')
+        plt.annotate('%d' % (i), xy=(y_pred[i-1], x_pred[i-1]))
     if i < len(x_GT)-2:
-        plt.scatter(y_planned[i], x_planned[i], marker='v', color='g')
+        plt.scatter(y_planned[i], x_planned[i], marker='v', s=8, color='g')
+        plt.annotate('%d' % i, xy=(y_planned[i], x_planned[i]))
     plt.title("Groudtruth locations, Visual Odometry estimations and planned navigation")
-    plt.xlim([-250,150])
-    plt.xticks(list(range(-250, 150, 5)))
-    plt.ylim([-800, 300])
-    plt.yticks(list(range(-800, 300, 25)))
+    plt.xlim([-10, 100])
+    plt.xticks(list(range(-10, 100, 5)))
+    plt.ylim([-725, 0])
+    plt.yticks(list(range(-725, 0, 25)))
     plt.xlabel("Y(cm)")
     plt.ylabel("X(cm)")
     plt.savefig(anim_dir+'/'+str(i)+'.png')
