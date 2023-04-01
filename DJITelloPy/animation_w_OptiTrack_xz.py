@@ -20,12 +20,16 @@ points_pred = list()
 points_planned = list()
 
 SEED = 54
-BASE_RENDER_DIR = '/home/vista/ilya_tello_test/OL_trajs_images/'
+BASE_RENDER_DIR = 'C:/Users/Ily/Desktop/linkdin/dataset/OL_trajs_images_R25_btt_center_1/'
 render_dir = os.path.join(BASE_RENDER_DIR, str(SEED))
 viz_dir = os.path.join(render_dir,'viz')
+anim_dir = os.path.join(viz_dir, 'anim_xz')
 pose_GT = os.path.join(viz_dir, 'pose_GT.txt')
 pose_pred = os.path.join(viz_dir, 'pose_pred.txt')
 pose_planned = os.path.join(viz_dir, 'pose_planned.txt')
+
+if not os.path.exists(anim_dir):
+    os.makedirs(anim_dir)
 
 with open(pose_GT, 'r') as gt_file, \
         open(pose_pred, 'r') as pred_file, \
@@ -101,8 +105,11 @@ import matplotlib.pyplot as plt
 
 # Dataset
 
-_, x_start, _, z_start, target_x, _, target_z, x_stop, \
-    = np.load("alpha_start_pos_target_pos_x_stop.npy")
+#_, x_start, _, z_start, target_x, _, target_z, x_stop, \
+#    = np.load("alpha_start_pos_target_pos_x_stop.npy")
+x_start, z_start = -700, 155
+target_x, target_z = 0, 260
+x_stop = -100
 
 chasing_x_points = [x_start, target_x]
 chasing_z_points = [z_start, target_z]
@@ -123,37 +130,39 @@ z_pred = np.array(z_pred_l)
 x_planned = [pt[0] for pt in points_planned[:-1]]
 z_planned = [pt[1] for pt in points_planned[:-1]]
 
+plt.rcParams["figure.figsize"] = [3*6.4, 0.5*6.4]
+plt.rcParams['font.size'] = 7
+
+plt.plot(chasing_x_points, chasing_z_points, linestyle="--", marker='p', color='k')
+plt.axhline(y=x_stop, color='k', linestyle='--')
+
+plt.tick_params(axis='both', which='major', labelsize=5)
+
+for i in range(len(x_GT)):
+    # Plotting the Graph
+    cur_x_GT = x_GT[:i + 1]
+    cur_z_GT = z_GT[:i + 1]
+    plt.plot(cur_x_GT, cur_z_GT, marker='o', markersize=5, color='b')
+    for i, xz in enumerate(zip(cur_x_GT, cur_z_GT)):
+       plt.annotate('%d' % i, xy=xz,  fontsize=5)
+    if i > 0:
+        plt.plot(x_pred[i - 1], z_pred[i - 1], marker='x', markersize=5, color='r')
+        plt.annotate('%d' % (i), xy=(x_pred[i-1], z_pred[i-1]),  fontsize=5)
+    if i < len(x_GT) - 2:
+        plt.scatter(x_planned[i], z_planned[i], marker='v', s=10, color='g')
+        plt.annotate('%d' % i, xy=(x_planned[i], z_planned[i]), fontsize=5)
+
+    plt.title("Groudtruth locations, Visual Odometry estimations and planned"
+              " navigation", fontsize=10)
+    plt.xlim([-700, 0])
+    plt.xticks(list(range(-700, 0, 25)))
+    plt.ylim([100, 300])
+    plt.yticks(list(range(100, 300, 5)))
+    plt.xlabel("Y(cm)")
+    plt.ylabel("X(cm)")
+    plt.savefig(anim_dir + '/' + str(i) + '.png')
 
 
-# Plotting the Graph
-plt.rcParams["figure.figsize"] = [3*6.4,3*6.4]
-plt.rcParams['font.size'] = 10
-plt.plot(x_GT, z_GT, marker='o', color='b')
-for i, xz in enumerate(zip(x_GT, z_GT)):
-   plt.annotate('%d' % i, xy=xz)
-plt.plot(x_pred, z_pred, linestyle="--", marker='x', color='r')
-for i, xz in enumerate(zip(x_pred, z_pred)):
-   plt.annotate('%d' % (i+1), xy=xz)
-plt.scatter(x_planned, z_planned, marker='v', color='g')
-for i, xz in enumerate(zip(x_planned, z_planned)):
-   plt.annotate('%d' % i, xy=xz)
-
-plt.plot(chasing_x_points, chasing_z_points, linestyle="--", marker='p',
-         color='k')
-plt.axvline(x=x_stop, color='k', linestyle='--')
-
-plt.title("Groudtruth locations, Visual Odometry estimations and planned"
-          " navigation", fontsize=25)
-plt.xlim([-800, 300])
-plt.xticks(list(range(-800, 300, 25)))
-plt.ylim([50, 275])
-plt.yticks(list(range(0, 275, 5)))
-plt.xlabel("X(cm)")
-plt.ylabel("Z(cm)")
-
-plt.tick_params(axis='both', which='major', labelsize=12)
-
-plt.show()
 
 import matplotlib.pyplot as plt
 
