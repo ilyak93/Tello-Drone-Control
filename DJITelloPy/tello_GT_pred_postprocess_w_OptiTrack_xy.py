@@ -3,6 +3,7 @@ import math
 import numpy as np
 import os
 
+
 # Rescaling as it is done in TartanVO as the final step if sample has "motion" key, i.e label
 def rescale(xyz_GT, xyz_pred):
     scale = np.linalg.norm(xyz_GT)
@@ -22,10 +23,14 @@ points_planned = list()
 SEED = 54
 BASE_RENDER_DIR = 'C:/Users/Ily/Desktop/linkdin/dataset/OL_trajs_images_R25_btt_center_1/'
 render_dir = os.path.join(BASE_RENDER_DIR, str(SEED))
-viz_dir = os.path.join(render_dir,'viz')
+viz_dir = os.path.join(render_dir, 'viz')
+anim_dir = os.path.join(viz_dir, 'anim_xy')
 pose_GT = os.path.join(viz_dir, 'pose_GT.txt')
 pose_pred = os.path.join(viz_dir, 'pose_pred.txt')
 pose_planned = os.path.join(viz_dir, 'pose_planned.txt')
+
+if not os.path.exists(anim_dir):
+    os.makedirs(anim_dir)
 
 with open(pose_GT, 'r') as gt_file, \
         open(pose_pred, 'r') as pred_file, \
@@ -53,7 +58,6 @@ with open(pose_GT, 'r') as gt_file, \
     for i in range(1, len(GT_lines)):
         # calculate translation: y positive is from the left of the pad, more intuitive to align to VO where it is to
         # the right
-
         cur_GT = GT_lines[i].split()
         cur_x_GT, cur_y_GT, cur_z_GT = float(cur_GT[0]), float(cur_GT[1]), float(cur_GT[2])
         # x_trans, y_trans, z_trans = 0, 0, 0
@@ -83,6 +87,10 @@ with open(pose_GT, 'r') as gt_file, \
 
         # rescale and save
         pred = pred_lines[i - 1].split()
+        #pred = [float(p) for p in pred_lines[i - 1].split()]
+        #pred_format = np.array(pred).reshape((1,-1))
+        #motions = motion2pose(pred_format)  # for 2 images, we get after this line 2 motions, one being the identity
+        #cur_pred = motions[-1]  # hence we take the latter
         xyz_pred = np.array([float(pred[0]), float(pred[1]), float(pred[2])])
         scaled_x, scaled_y, scaled_z = rescale(np.array([x_trans, y_trans, z_trans]), xyz_pred)
         cur_pred = [sum(x) for x in zip(cur_pred, (scaled_x, scaled_y))]
@@ -107,6 +115,7 @@ x_start, y_start = -700, -2
 target_x, target_y = 600, -2
 x_stop = -100
 
+
 chasing_x_points = [x_start, target_x]
 chasing_y_points = [y_start, target_y]
 
@@ -123,41 +132,44 @@ y_pred_l = [pt[1] for pt in points_pred]
 
 y_pred = np.array(y_pred_l)
 
-x_planned = [pt[0] for pt in points_planned[:-1]]
+x_planned= [pt[0] for pt in points_planned[:-1]]
 y_planned = [pt[1] for pt in points_planned[:-1]]
 
 
-
 # Plotting the Graph
-plt.rcParams["figure.figsize"] = [0.5*6.4,3*6.4]
+plt.rcParams["figure.figsize"] = [0.5*6.4, 3*6.4]
 plt.rcParams['font.size'] = 7
-plt.plot(y_GT, x_GT, marker='o', markersize=5, color='b')
-for i, xy in enumerate(zip(y_GT, x_GT)):
-   plt.annotate('%d' % i, xy=xy)
-plt.plot(y_pred, x_pred, linestyle="--", marker='x', markersize=5, color='r')
-for i, xy in enumerate(zip(y_pred, x_pred)):
-   plt.annotate('%d' % (i+1), xy=xy)
-plt.scatter(y_planned, x_planned, marker='v', s=10, color='g')
-for i, xy in enumerate(zip(y_planned, x_planned)):
-   plt.annotate('%d' % i, xy=xy)
 
 plt.plot(chasing_y_points, chasing_x_points, linestyle="--", marker='p', color='k')
 plt.axhline(y=x_stop, color='k', linestyle='--')
 
 plt.title("Groudtruth locations, Visual Odometry estimations and planned"
-          " navigation with chasing axis", fontsize=5)
-
-plt.xlim([-10, 100])
-plt.xticks(list(range(-10, 100, 5)))
-plt.ylim([-800, 0])
-plt.yticks(list(range(-800, 0, 25)))
-
-plt.xlabel("Y(cm)")
-plt.ylabel("X(cm)")
+          " navigation with chasing axis", fontsize=7)
 
 plt.tick_params(axis='both', which='major', labelsize=6)
 
-plt.show()
+for i in range(len(x_GT)):
+    # Plotting the Graph
+    cur_x_GT = x_GT[:i+1]
+    cur_y_GT = y_GT[:i+1]
+    plt.plot(cur_y_GT, cur_x_GT, marker='o', markersize=5, color='b')
+    for i, xy in enumerate(zip(cur_y_GT, cur_x_GT)):
+       plt.annotate('%d' % i, xy=xy)
+    if i > 0:
+        plt.plot(y_pred[i-1], x_pred[i-1], marker='x', markersize=5, color='r')
+        plt.annotate('%d' % (i), xy=(y_pred[i-1], x_pred[i-1]))
+    if i < len(x_GT)-2:
+        plt.scatter(y_planned[i], x_planned[i], marker='v', s=8, color='g')
+        plt.annotate('%d' % i, xy=(y_planned[i], x_planned[i]))
+    plt.title("Groudtruth locations, Visual Odometry estimations and planned navigation")
+    plt.xlim([-10, 100])
+    plt.xticks(list(range(-10, 100, 5)))
+    plt.ylim([-725, 0])
+    plt.yticks(list(range(-725, 0, 25)))
+    plt.xlabel("Y(cm)")
+    plt.ylabel("X(cm)")
+    plt.savefig(anim_dir+'/'+str(i)+'.png')
+
 
 import matplotlib.pyplot as plt
 
