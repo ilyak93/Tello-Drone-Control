@@ -11,3 +11,29 @@ Here I only take a look at its performance (not that bad for the record),without
 The real location in this toy example is gotten by using the pads, from which the drone can estimate the distance. Of-course a more reliable location estimation system will be used further (OptiTrack mockup, GPS and etc).
 
 Threading events were used to implement the appropriate thread-based communication to make the recordings happen after each movement without any recording while the drone stops and waits (milliseconds/nanoseconds) for the next command to start. In more advanced version I've also worked on adding support for recording during the movement, but the key-points where the VO influence the navigation is in those stops (and in real life scenario continuously, a simulation of which is taking place, as was mentioned).
+
+
+Further development of this module incorporated Motive OptiTrack Mockup for exact location estimation of the drone, illustration of which you can see down below:
+
+
+![](https://github.com/ilyak93/Tello-Drone-Control/blob/main/DJITelloPy/visualisation_pose_VO_planned_with_Motive_OptiTrack/video_2023-03-31_20-20-10.gif)
+
+Motive Perspective:
+![](https://github.com/ilyak93/Tello-Drone-Control/blob/main/DJITelloPy/visualisation_pose_VO_planned_with_Motive_OptiTrack/2023-03-28-10-00-03.gif)
+
+Center to center trajectory (Top to Bottom):
+![](https://github.com/ilyak93/Tello-Drone-Control/blob/main/DJITelloPy/visualisation_pose_VO_planned_with_Motive_OptiTrack/1_traj.gif)
+
+Left to center trajectory (Top to Bottom):
+![](https://github.com/ilyak93/Tello-Drone-Control/blob/main/DJITelloPy/visualisation_pose_VO_planned_with_Motive_OptiTrack/2_traj.gif)
+
+Right to center trajectory (Top to Bottom):
+![](https://github.com/ilyak93/Tello-Drone-Control/blob/main/DJITelloPy/visualisation_pose_VO_planned_with_Motive_OptiTrack/3_traj.gif)
+
+Center to center trajectory (Bottom to Top):
+![](https://github.com/ilyak93/Tello-Drone-Control/blob/main/DJITelloPy/visualisation_pose_VO_planned_with_Motive_OptiTrack/4_traj.gif)
+
+Center to center trajectories (Bottom to Top) statistics:
+![](https://github.com/ilyak93/Tello-Drone-Control/blob/main/DJITelloPy/visualisation_pose_VO_planned_with_Motive_OptiTrack/traj_mean.gif)
+
+
