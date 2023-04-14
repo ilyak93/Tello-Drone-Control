@@ -33,7 +33,7 @@ Right to center trajectory (Top to Bottom):
 Center to center trajectory (Bottom to Top):
 ![](https://github.com/ilyak93/Tello-Drone-Control/blob/main/DJITelloPy/visualisation_pose_VO_planned_with_Motive_OptiTrack/4_traj.gif)
 
-Center to center trajectories (Bottom to Top) statistics:
+Center to center trajectories (Top to Bottom) statistics:
 ![](https://github.com/ilyak93/Tello-Drone-Control/blob/main/DJITelloPy/visualisation_pose_VO_planned_with_Motive_OptiTrack/traj_mean.gif)
 
 
